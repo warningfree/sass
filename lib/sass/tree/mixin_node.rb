@@ -11,13 +11,16 @@ module Sass::Tree
     def options=(opts)
       super
       @args.each {|a| a.context = :equals} if opts[:sass2]
+      @keywords.each {|k, v| v.context = :equals} if opts[:sass2]
     end
 
     # @param name [String] The name of the mixin
     # @param args [Array<Script::Node>] The arguments to the mixin
-    def initialize(name, args)
+    # @param keywords [{String => Script::Node}] A hash from keyword argument names to values
+    def initialize(name, args, keywords)
       @name = name
       @args = args
+      @keywords = keywords
       super()
     end
 
@@ -42,8 +45,12 @@ module Sass::Tree
 
     # @see Node#to_src
     def to_src(tabs, opts, fmt)
-      args = '(' + @args.map {|a| a.to_sass(opts)}.join(", ") + ')' unless @args.empty?
-      "#{'  ' * tabs}#{fmt == :sass ? '+' : '@include '}#{dasherize(@name, opts)}#{args}#{semi fmt}\n"
+      unless @args.empty? && @keywords.empty?
+        args = @args.map {|a| a.to_sass(opts)}.join(", ")
+        keywords = @keywords.map {|k, v| "$#{dasherize(k, opts)}: #{v.to_sass(opts)}"}.join(', ')
+        arglist = "(#{args}#{', ' unless args.empty? || keywords.empty?}#{keywords})"
+      end
+      "#{'  ' * tabs}#{fmt == :sass ? '+' : '@include '}#{dasherize(@name, opts)}#{arglist}#{semi fmt}\n"
     end
 
     # @see Node#_cssize
@@ -73,15 +80,28 @@ module Sass::Tree
       original_env.prepare_frame(:mixin => @name)
       raise Sass::SyntaxError.new("Undefined mixin '#{@name}'.") unless mixin = environment.mixin(@name)
 
-      raise Sass::SyntaxError.new(<<END.gsub("\n", "")) if mixin.args.size < @args.size
+      passed_args = @args.dup
+      passed_keywords = @keywords.dup
+
+      raise Sass::SyntaxError.new(<<END.gsub("\n", "")) if mixin.args.size < passed_args.size
 Mixin #{@name} takes #{mixin.args.size} argument#{'s' if mixin.args.size != 1}
  but #{@args.size} #{@args.size == 1 ? 'was' : 'were'} passed.
 END
-      environment = mixin.args.zip(@args).
+
+      passed_keywords.each do |name, value|
+        # TODO: Make this fast
+        unless mixin.args.find {|(var, default)| var.underscored_name == name}
+          raise Sass::SyntaxError.new("Mixin #{@name} doesn't have an argument named $#{name}")
+        end
+      end
+
+      environment = mixin.args.zip(passed_args).
         inject(Sass::Environment.new(mixin.environment)) do |env, ((var, default), value)|
         env.set_local_var(var.name,
           if value
             value.perform(environment)
+          elsif kv = passed_keywords[var.underscored_name]
+            kv.perform(env)
           elsif default
             val = default.perform(env)
             if default.context == :equals && val.is_a?(Sass::Script::String)

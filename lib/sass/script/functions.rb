@@ -8,121 +8,124 @@ module Sass::Script
   #
   # The following functions are provided:
   #
+  # *Note: These functions are described in more detail below.*
+  #
   # ## RGB Functions
   #
-  # \{#rgb}
+  # \{#rgb rgb($red, $green, $blue)}
   # : Converts an `rgb(red, green, blue)` triplet into a color.
   #
-  # \{#rgba}
+  # \{#rgba rgba($red, $green, $blue, $alpha)}
   # : Converts an `rgba(red, green, blue, alpha)` quadruplet into a color.
   #
-  # \{#red}
+  # \{#rgba rgba($color, $alpha)}
+  # : Adds an alpha layer to any color value.
+  #
+  # \{#red red($color)}
   # : Gets the red component of a color.
   #
-  # \{#green}
+  # \{#green green($color)}
   # : Gets the green component of a color.
   #
-  # \{#blue}
+  # \{#blue blue($color)}
   # : Gets the blue component of a color.
   #
-  # \{#mix}
+  # \{#mix mix($color-1, $color-2, \[$weight\])}
   # : Mixes two colors together.
   #
   # ## HSL Functions
   #
-  # \{#hsl}
+  # \{#hsl hsl($hue, $saturation, $lightness)}
   # : Converts an `hsl(hue, saturation, lightness)` triplet into a color.
   #
-  # \{#hsla}
+  # \{#hsla hsla($hue, $saturation, $lightness, $alpha)}
   # : Converts an `hsla(hue, saturation, lightness, alpha)` quadruplet into a color.
   #
-  # \{#hue}
+  # \{#hue hue($color)}
   # : Gets the hue component of a color.
   #
-  # \{#saturation}
+  # \{#saturation saturation($color)}
   # : Gets the saturation component of a color.
   #
-  # \{#lightness}
+  # \{#lightness lightness($color)}
   # : Gets the lightness component of a color.
   #
-  # \{#adjust_hue #adjust-hue}
+  # \{#adjust_hue adjust-hue($color, $degrees)}
   # : Changes the hue of a color.
   #
-  # \{#lighten}
+  # \{#lighten lighten($color, $amount)}
   # : Makes a color lighter.
   #
-  # \{#darken}
+  # \{#darken darken($color, $amount)}
   # : Makes a color darker.
   #
-  # \{#saturate}
+  # \{#saturate saturate($color, $amount)}
   # : Makes a color more saturated.
   #
-  # \{#desaturate}
+  # \{#desaturate desaturate($color, $amount)}
   # : Makes a color less saturated.
   #
-  # \{#grayscale}
+  # \{#grayscale grayscale($color)}
   # : Converts a color to grayscale.
   #
-  # \{#complement}
+  # \{#complement complement($color)}
   # : Returns the complement of a color.
   #
-  # \{#invert}
+  # \{#invert invert($color)}
   # : Returns the inverse of a color.
   #
   # ## Opacity Functions
   #
-  # \{#alpha} / \{#opacity}
+  # \{#alpha alpha($color)} / \{#opacity opacity($color)}
   # : Gets the alpha component (opacity) of a color.
   #
-  # \{#rgba}
-  # : Sets the alpha component of a color.
+  # \{#rgba rgba($color, $alpha)}
+  # : Add or change an alpha layer for any color value.
   #
-  # \{#opacify} / \{#fade_in #fade-in}
+  # \{#opacify opacify($color, $amount)} / \{#fade_in fade-in($color, $amount)}
   # : Makes a color more opaque.
   #
-  # \{#transparentize} / \{#fade_out #fade-out}
+  # \{#transparentize transparentize($color, $amount)} / \{#fade_out fade-out($color, $amount)}
   # : Makes a color more transparent.
   #
   # ## String Functions
   #
-  # \{#unquote}
+  # \{#unquote unquote($string)}
   # : Removes the quotes from a string.
   #
-  # \{#quote}
+  # \{#quote quote($string)}
   # : Adds quotes to a string.
   #
   # ## Number Functions
   #
-  # \{#percentage}
+  # \{#percentage percentage($value)}
   # : Converts a unitless number to a percentage.
   #
-  # \{#round}
+  # \{#round round($value)}
   # : Rounds a number to the nearest whole number.
   #
-  # \{#ceil}
+  # \{#ceil ceil($value)}
   # : Rounds a number up to the nearest whole number.
   #
-  # \{#floor}
+  # \{#floor floor($value)}
   # : Rounds a number down to the nearest whole number.
   #
-  # \{#abs}
+  # \{#abs abs($value)}
   # : Returns the absolute value of a number.
   #
   # ## Introspection Functions
   #
-  # \{#type_of}
+  # \{#type_of type-of($value)}
   # : Returns the type of a value.
   #
-  # \{#unit}
+  # \{#unit unit($number)}
   # : Returns the units associated with a number.
   #
-  # \{#unitless}
+  # \{#unitless unitless($number)}
   # : Returns whether a number has units or not.
   #
-  # \{#comparable}
+  # \{#comparable comparable($number-1, $number-2)}
   # : Returns whether two numbers can be added or compared.
-  #
-  # These functions are described in more detail below.
   #
   # ## Adding Custom Functions
   #
@@ -134,7 +137,12 @@ module Sass::Script
   #         assert_type string, :String
   #         Sass::Script::String.new(string.value.reverse)
   #       end
+  #       declare :reverse, :args => [:string]
   #     end
+  #
+  # Calling {declare} tells Sass the argument names for your function.
+  # If omitted, the function will still work, but will not be able to accept keyword arguments.
+  # {declare} can also allow your function to take arbitrary keyword arguments.
   #
   # There are a few things to keep in mind when modifying this module.
   # First of all, the arguments passed are {Sass::Script::Literal} objects.
@@ -169,6 +177,91 @@ module Sass::Script
   # (or other methods that use the string representation)
   # on those objects without first setting {Node#options= the #options attribute}.
   module Functions
+    @signatures = {}
+
+    # A class representing a Sass function signature.
+    #
+    # @attr args [Array<Symbol>] The names of the arguments to the function.
+    # @attr var_args [Boolean] Whether the function takes a variable number of arguments.
+    # @attr var_kwargs [Boolean] Whether the function takes an arbitrary set of keyword arguments.
+    Signature = Struct.new(:args, :var_args, :var_kwargs)
+
+    # Declare a Sass signature for a Ruby-defined function.
+    # This includes the names of the arguments,
+    # whether the function takes a variable number of arguments,
+    # and whether the function takes an arbitrary set of keyword arguments.
+    #
+    # It's not necessary to declare a signature for a function.
+    # However, without a signature it won't support keyword arguments.
+    #
+    # A single function can have multiple signatures declared
+    # as long as each one takes a different number of arguments.
+    # It's also possible to declare multiple signatures
+    # that all take the same number of arguments,
+    # but none of them but the first will be used
+    # unless the user uses keyword arguments.
+    #
+    # @param method_name [Symbol] The name of the method
+    #   whose signature is being declared.
+    # @param args [Array<Symbol>] The names of the arguments for the function signature.
+    # @option options :var_args [Boolean] (false)
+    #   Whether the function accepts a variable number of (unnamed) arguments
+    #   in addition to the named arguments.
+    # @option options :var_kwargs [Boolean] (false)
+    #   Whether the function accepts other keyword arguments
+    #   in addition to those in `:args`.
+    #   If this is true, the Ruby function will be passed a hash from strings
+    #   to {Sass::Script::Literal}s as the last argument.
+    # 
+    # @example
+    #   declare :rgba, [:hex, :alpha]
+    #   declare :rgba, [:red, :green, :blue, :alpha]
+    #   declare :accepts_anything, [], :var_args => true, :var_kwargs => true
+    #   declare :some_func, [:foo, :bar, :baz], :var_kwargs => true
+    def self.declare(method_name, args, options = {})
+      @signatures[method_name] ||= []
+      @signatures[method_name] << Signature.new(
+        args.map {|s| s.to_s},
+        options[:var_args],
+        options[:var_kwargs])
+    end
+
+    # Determine the correct signature for the number of arguments
+    # passed in for a given function.
+    # If no signatures match, the first signature is returned for error messaging.
+    #
+    # @param method_name [Symbol] The name of the Ruby function to be called.
+    # @param arg_arity [Number] The number of unnamed arguments the function was passed.
+    # @param kwarg_arity [Number] The number of keyword arguments the function was passed.
+    #
+    # @return [{Symbol => Object}, nil]
+    #   The signature options for the matching signature,
+    #   or nil if no signatures are declared for this function. See {declare}.
+    def self.signature(method_name, arg_arity, kwarg_arity)
+      return unless @signatures[method_name]
+      @signatures[method_name].each do |signature|
+        return signature if signature.args.size == arg_arity + kwarg_arity
+        next unless signature.args.size < arg_arity + kwarg_arity
+
+        # We have enough args.
+        # Now we need to figure out which args are varargs
+        # and if the signature allows them.
+        t_arg_arity, t_kwarg_arity = arg_arity, kwarg_arity
+        if signature.args.size > t_arg_arity
+          # we transfer some kwargs arity to args arity
+          # if it does not have enough args -- assuming the names will work out.
+          t_kwarg_arity -= (signature.args.size - t_arg_arity)
+          t_arg_arity = signature.args.size
+        end
+
+        if (  t_arg_arity == signature.args.size ||   t_arg_arity > signature.args.size && signature.var_args  ) &&
+           (t_kwarg_arity == 0                   || t_kwarg_arity > 0                   && signature.var_kwargs)
+          return signature
+        end
+      end
+      @signatures[method_name].first
+    end
+
     # The context in which methods in {Script::Functions} are evaluated.
     # That means that all instance methods of {EvaluationContext}
     # are available to use in functions.
@@ -237,6 +330,7 @@ module Sass::Script
           end
         end)
     end
+    declare :rgb, [:red, :green, :blue]
 
     # @see #rgb
     # @overload rgba(red, green, blue, alpha)
@@ -284,6 +378,8 @@ module Sass::Script
         raise ArgumentError.new("wrong number of arguments (#{args.size} for 4)")
       end
     end
+    declare :rgba, [:red, :green, :blue, :alpha]
+    declare :rgba, [:color, :alpha]
 
     # Creates a {Color} object from hue, saturation, and lightness.
     # Uses the algorithm from the [CSS3 spec](http://www.w3.org/TR/css3-color/#hsl-color).
@@ -300,6 +396,7 @@ module Sass::Script
     def hsl(hue, saturation, lightness)
       hsla(hue, saturation, lightness, Number.new(1))
     end
+    declare :hsl, [:hue, :saturation, :lightness]
 
     # Creates a {Color} object from hue, saturation, and lightness,
     # as well as an alpha channel indicating opacity.
@@ -335,6 +432,7 @@ module Sass::Script
 
       Color.new(:hue => h, :saturation => s, :lightness => l, :alpha => alpha.value)
     end
+    declare :hsla, [:hue, :saturation, :lightness, :alpha]
 
     # Returns the red component of a color.
     #
@@ -345,6 +443,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.red)
     end
+    declare :red, [:color]
 
     # Returns the green component of a color.
     #
@@ -355,6 +454,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.green)
     end
+    declare :green, [:color]
 
     # Returns the blue component of a color.
     #
@@ -365,6 +465,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.blue)
     end
+    declare :blue, [:color]
 
     # Returns the hue component of a color.
     #
@@ -380,6 +481,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.hue, ["deg"])
     end
+    declare :hue, [:color]
 
     # Returns the saturation component of a color.
     #
@@ -396,6 +498,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.saturation, ["%"])
     end
+    declare :saturation, [:color]
 
     # Returns the hue component of a color.
     #
@@ -412,6 +515,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.lightness, ["%"])
     end
+    declare :lightness, [:color]
 
     # Returns the alpha component (opacity) of a color.
     # This is 1 unless otherwise specified.
@@ -436,6 +540,7 @@ module Sass::Script
 
       opacity(*args)
     end
+    declare :alpha, [:color]
 
     # Returns the alpha component (opacity) of a color.
     # This is 1 unless otherwise specified.
@@ -449,6 +554,7 @@ module Sass::Script
       assert_type color, :Color
       Sass::Script::Number.new(color.alpha)
     end
+    declare :opacity, [:color]
 
     # Makes a color more opaque.
     # Takes a color and an amount between 0 and 1,
@@ -466,7 +572,10 @@ module Sass::Script
     def opacify(color, amount)
       adjust(color, amount, :alpha, 0..1, :+)
     end
+    declare :opacify, [:color, :amount]
+
     alias_method :fade_in, :opacify
+    declare :fade_in, [:color, :amount]
 
     # Makes a color more transparent.
     # Takes a color and an amount between 0 and 1,
@@ -484,7 +593,10 @@ module Sass::Script
     def transparentize(color, amount)
       adjust(color, amount, :alpha, 0..1, :-)
     end
+    declare :transparentize, [:color, :amount]
+
     alias_method :fade_out, :transparentize
+    declare :fade_out, [:color, :amount]
 
     # Makes a color lighter.
     # Takes a color and an amount between 0% and 100%,
@@ -502,6 +614,7 @@ module Sass::Script
     def lighten(color, amount)
       adjust(color, amount, :lightness, 0..100, :+, "%")
     end
+    declare :lighten, [:color, :amount]
 
     # Makes a color darker.
     # Takes a color and an amount between 0% and 100%,
@@ -519,6 +632,7 @@ module Sass::Script
     def darken(color, amount)
       adjust(color, amount, :lightness, 0..100, :-, "%")
     end
+    declare :darken, [:color, :amount]
 
     # Makes a color more saturated.
     # Takes a color and an amount between 0% and 100%,
@@ -536,6 +650,7 @@ module Sass::Script
     def saturate(color, amount)
       adjust(color, amount, :saturation, 0..100, :+, "%")
     end
+    declare :saturate, [:color, :amount]
 
     # Makes a color less saturated.
     # Takes a color and an amount between 0% and 100%,
@@ -553,6 +668,7 @@ module Sass::Script
     def desaturate(color, amount)
       adjust(color, amount, :saturation, 0..100, :-, "%")
     end
+    declare :desaturate, [:color, :amount]
 
     # Changes the hue of a color while retaining the lightness and saturation.
     # Takes a color and a number of degrees (usually between -360deg and 360deg),
@@ -571,6 +687,7 @@ module Sass::Script
       assert_type degrees, :Number
       color.with(:hue => color.hue + degrees.value)
     end
+    declare :adjust_hue, [:color, :degrees]
 
     # Mixes together two colors.
     # Specifically, takes the average of each of the RGB components,
@@ -635,6 +752,8 @@ module Sass::Script
       alpha = color1.alpha*p + color2.alpha*(1-p)
       Color.new(rgb + [alpha])
     end
+    declare :mix, [:color_1, :color_2]
+    declare :mix, [:color_1, :color_2, :weight]
 
     # Converts a color to grayscale.
     # This is identical to `desaturate(color, 100%)`.
@@ -646,6 +765,7 @@ module Sass::Script
     def grayscale(color)
       desaturate color, Number.new(100)
     end
+    declare :grayscale, [:color]
 
     # Returns the complement of a color.
     # This is identical to `adjust-hue(color, 180deg)`.
@@ -657,6 +777,7 @@ module Sass::Script
     def complement(color)
       adjust_hue color, Number.new(180)
     end
+    declare :complement, [:color]
 
     # Returns the inverse (negative) of a color.
     # The red, green, and blue values are inverted, while the opacity is left alone.
@@ -675,32 +796,34 @@ module Sass::Script
     # Removes quotes from a string if the string is quoted,
     # or returns the same string if it's not.
     #
-    # @param str [String]
+    # @param string [String]
     # @return [String]
-    # @raise [ArgumentError] if `str` isn't a string
+    # @raise [ArgumentError] if `string` isn't a string
     # @see #quote
     # @example
     #   unquote("foo") => foo
     #   unquote(foo) => foo
-    def unquote(str)
-      assert_type str, :String
-      Sass::Script::String.new(str.value, :identifier)
+    def unquote(string)
+      assert_type string, :String
+      Sass::Script::String.new(string.value, :identifier)
     end
+    declare :unquote, [:string]
 
     # Add quotes to a string if the string isn't quoted,
     # or returns the same string if it is.
     #
-    # @param str [String]
+    # @param string [String]
     # @return [String]
-    # @raise [ArgumentError] if `str` isn't a string
+    # @raise [ArgumentError] if `string` isn't a string
     # @see #unquote
     # @example
     #   quote("foo") => "foo"
     #   quote(foo) => "foo"
-    def quote(str)
-      assert_type str, :String
-      Sass::Script::String.new(str.value, :string)
+    def quote(string)
+      assert_type string, :String
+      Sass::Script::String.new(string.value, :string)
     end
+    declare :quote, [:string]
 
     # Inspects the type of the argument, returning it as an unquoted string.
     #
@@ -711,11 +834,12 @@ module Sass::Script
     #   type-of(true)   => bool
     #   type-of(#fff)   => color
     #   type-of(blue)   => color
-    # @param obj [Literal] The object to inspect
+    # @param value [Literal] The object to inspect
     # @return [String] The unquoted string name of the literal's type
-    def type_of(obj)
-      Sass::Script::String.new(obj.class.name.gsub(/Sass::Script::/,'').downcase)
+    def type_of(value)
+      Sass::Script::String.new(value.class.name.gsub(/Sass::Script::/,'').downcase)
     end
+    declare :type_of, [:value]
 
     # Inspects the unit of the number, returning it as a quoted string.
     # Complex units are sorted in alphabetical order by numerator and denominator.
@@ -733,6 +857,7 @@ module Sass::Script
       assert_type number, :Number
       Sass::Script::String.new(number.unit_str, :string)
     end
+    declare :unit, [:number]
 
     # Inspects the unit of the number, returning a boolean indicating if it is unitless.
     #
@@ -746,6 +871,7 @@ module Sass::Script
       assert_type number, :Number
       Sass::Script::Bool.new(number.unitless?)
     end
+    declare :unitless, [:number]
 
     # Returns true if two numbers are similar enough to be added, subtracted, or compared.
     #
@@ -753,15 +879,16 @@ module Sass::Script
     #   comparable(2px, 1px) => true
     #   comparable(100px, 3em) => false
     #   comparable(10cm, 3mm) => true
-    # @param number1 [Number]
-    # @param number2 [Number]
+    # @param number_1 [Number]
+    # @param number_2 [Number]
     # @return [Bool] indicating if the numbers can be compared.
-    # @raise [ArgumentError] if `number1` or `number2` aren't numbers
-    def comparable(number1, number2)
-      assert_type number1, :Number
-      assert_type number2, :Number
-      Sass::Script::Bool.new(number1.comparable_to?(number2))
+    # @raise [ArgumentError] if `number_1` or `number_2` aren't numbers
+    def comparable(number_1, number_2)
+      assert_type number_1, :Number
+      assert_type number_2, :Number
+      Sass::Script::Bool.new(number_1.comparable_to?(number_2))
     end
+    declare :comparable, [:number_1, :number_2]
 
     # Converts a decimal number to a percentage.
     #
@@ -776,6 +903,7 @@ module Sass::Script
       end
       Sass::Script::Number.new(value.value * 100, ['%'])
     end
+    declare :percentage, [:value]
 
     # Rounds a number to the nearest whole number.
     #
@@ -788,6 +916,7 @@ module Sass::Script
     def round(value)
       numeric_transformation(value) {|n| n.round}
     end
+    declare :round, [:value]
 
     # Rounds a number up to the nearest whole number.
     #
@@ -800,6 +929,7 @@ module Sass::Script
     def ceil(value)
       numeric_transformation(value) {|n| n.ceil}
     end
+    declare :ceil, [:value]
 
     # Rounds down to the nearest whole number.
     #
@@ -812,6 +942,7 @@ module Sass::Script
     def floor(value)
       numeric_transformation(value) {|n| n.floor}
     end
+    declare :floor, [:value]
 
     # Finds the absolute value of a number.
     #
@@ -824,6 +955,7 @@ module Sass::Script
     def abs(value)
       numeric_transformation(value) {|n| n.abs}
     end
+    declare :abs, [:value]
 
     private
 

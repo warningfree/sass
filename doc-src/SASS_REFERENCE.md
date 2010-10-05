@@ -851,7 +851,7 @@ SassScript defines some useful functions
 that are called using the normal CSS function syntax:
 
     p {
-      color: hsl(0, 100%, 0.5);
+      color: hsl(0, 100%, 50%);
     }
 
 is compiled to:
@@ -859,7 +859,23 @@ is compiled to:
     p {
       color: #ff0000; }
 
-See {Sass::Script::Functions} for a full listing of Sass functions,
+#### Keyword Arguments
+
+Sass functions can also be called using explicit keyword arguments.
+The above example can also be written as:
+
+    p {
+      color: hsl($hue: 0, $saturation: 100%, $lightness: 50%);
+    }
+
+While this is less concise, it can make the stylesheet easier to read.
+It also allows functions to present more flexible interfaces,
+providing many arguments without becoming difficult to call.
+
+Named arguments can be passed in any order, and arguments with default values can be omitted.
+Since the named arguments are variable names, underscores and dashes can be used interchangeably.
+
+See {Sass::Script::Functions} for a full listing of Sass functions and their argument names,
 as well as instructions on defining your own in Ruby.
 
 ### Interpolation: `#{}` {#interpolation_}
@@ -1591,6 +1607,21 @@ is compiled to:
       border-width: 2in;
       border-style: dashed; }
 
+#### Keyword Arguments
+
+Mixins can also be included using explicit keyword arguments.
+For instance, we the above example could be written as:
+
+    p { @include sexy-border($color: blue); }
+    h1 { @include sexy-border($color: blue, $width: 2in); }
+
+While this is less concise, it can make the stylesheet easier to read.
+It also allows functions to present more flexible interfaces,
+providing many arguments without becoming difficult to call.
+
+Named arguments can be passed in any order, and arguments with default values can be omitted.
+Since the named arguments are variable names, underscores and dashes can be used interchangeably.
+
 ## Output Style
 
 Although the default CSS style that Sass outputs is very nice
@@ -1682,9 +1713,8 @@ Using these features requires a strong understanding of Ruby.
 
 ### Defining Custom Sass Functions
 
-The same way that Sass defines new functions for use in Sass stylesheets is available
-to users who which to do so. For more information see the [source
-documentation](/docs/yardoc/Sass/Script/Functions.html#adding_custom_functions).
+Users can define their own Sass functions using the Ruby API.
+For more information, see the [source documentation](Sass/Script/Functions.html#adding_custom_functions).
 
 ### Cache Stores
 

@@ -94,6 +94,7 @@ MSG
     "a-\#{$b\n  c: d" => ['Invalid CSS after "a-#{$b": expected "}", was ""', 1],
     "=a($b = 1, $c)" => "Required argument $c must come before any optional arguments.",
     "=a($b = 1)\n  a: $b\ndiv\n  +a(1,2)" => "Mixin a takes 1 argument but 2 were passed.",
+    "=a($b: 1)\n  a: $b\ndiv\n  +a(1,$c: 3)" => "Mixin a doesn't have an argument named $c",
     "=a($b)\n  a: $b\ndiv\n  +a" => "Mixin a is missing parameter $b.",
     "@else\n  a\n    b: c" => ["@else must come after @if.", 1],
     "@if false\n@else foo" => "Invalid else directive '@else foo': expected 'if <expr>'.",
@@ -115,6 +116,16 @@ MSG
     '@warn' => "Invalid warn directive '@warn': expected expression.",
     %Q{@warn "a message"\n  "nested message"} => "Illegal nesting: Nothing may be nested beneath warn directives.",
     "/* foo\n    bar\n  baz" => "Inconsistent indentation: previous line was indented by 4 spaces, but this line was indented by 2 spaces.",
+    '+foo(1 + 1: 2)' => 'Invalid CSS after "(1 + 1": expected comma, was ": 2)"',
+    '+foo($var: )' => 'Invalid CSS after "($var: ": expected mixin argument, was ")"',
+    '+foo($var: a, $var: b)' => 'Keyword argument "$var" passed more than once',
+    '+foo($var-var: a, $var_var: b)' => 'Keyword argument "$var-var" passed more than once',
+    '+foo($var_var: a, $var-var: b)' => 'Keyword argument "$var_var" passed more than once',
+    "a\n  b: foo(1 + 1: 2)" => 'Invalid CSS after "foo(1 + 1": expected comma, was ": 2)"',
+    "a\n  b: foo($var: )" => 'Invalid CSS after "foo($var: ": expected function argument, was ")"',
+    "a\n  b: foo($var: a, $var: b)" => 'Keyword argument "$var" passed more than once',
+    "a\n  b: foo($var-var: a, $var_var: b)" => 'Keyword argument "$var-var" passed more than once',
+    "a\n  b: foo($var_var: a, $var-var: b)" => 'Keyword argument "$var_var" passed more than once',
 
     # Regression tests
     "a\n  b:\n    c\n    d" => ["Illegal nesting: Only properties may be nested beneath properties.", 3],
@@ -2098,6 +2109,70 @@ SASS
 @import url(foo.css?bar,baz);
 CSS
 @import url(foo.css?bar,baz)
+SASS
+  end
+
+  def test_mixin_with_keyword_args
+    assert_equal <<CSS, render(<<SASS)
+.mixed {
+  required: foo;
+  arg1: default-val1;
+  arg2: non-default-val2; }
+CSS
+=a-mixin($required, $arg1: default-val1, $arg2: default-val2)
+  required: $required
+  arg1: $arg1
+  arg2: $arg2
+.mixed
+  +a-mixin(foo, $arg2: non-default-val2)
+SASS
+  end
+
+  def test_mixin_keyword_args_handle_variable_underscore_dash_equivalence
+    assert_equal <<CSS, render(<<SASS)
+.mixed {
+  required: foo;
+  arg1: non-default-val1;
+  arg2: non-default-val2; }
+CSS
+=a-mixin($required, $arg-1: default-val1, $arg_2: default-val2)
+  required: $required
+  arg1: $arg_1
+  arg2: $arg-2
+.mixed
+  +a-mixin(foo, $arg-2: non-default-val2, $arg_1: non-default-val1)
+SASS
+  end
+
+  def test_passing_required_args_as_a_keyword_arg
+    assert_equal <<CSS, render(<<SASS)
+.mixed {
+  required: foo;
+  arg1: default-val1;
+  arg2: default-val2; }
+CSS
+=a-mixin($required, $arg1: default-val1, $arg2: default-val2)
+  required: $required
+  arg1: $arg1
+  arg2: $arg2
+.mixed
+  +a-mixin($required: foo)
+SASS
+  end
+
+  def test_passing_all_as_keyword_args_in_opposite_order
+    assert_equal <<CSS, render(<<SASS)
+.mixed {
+  required: foo;
+  arg1: non-default-val1;
+  arg2: non-default-val2; }
+CSS
+=a-mixin($required, $arg1: default-val1, $arg2: default-val2)
+  required: $required
+  arg1: $arg1
+  arg2: $arg2
+.mixed
+  +a-mixin($arg2: non-default-val2, $arg1: non-default-val1, $required: foo)
 SASS
   end
 
