@@ -43,17 +43,21 @@ module Sass
   # @raise [ArgumentError] if the document uses an unknown encoding with `@charset`
   #
   # @overload compile_file(filename, options = {})
+  #   Return the compiled CSS rather than writing it to a file.
+  #
   #   @return [String] The compiled CSS.
   #
   # @overload compile_file(filename, css_filename, options = {})
+  #   Write the compiled CSS to a file.
+  #
   #   @param css_filename [String] The location to which to write the compiled CSS.
   def self.compile_file(filename, *args)
     options = args.last.is_a?(Hash) ? args.pop : {}
-    css_filename ||= args.shift
-    options[:css_filename] = css_filename
+    css_filename = args.shift
     result = Sass::Engine.for_file(filename, options).render
     if css_filename
-      open(css_filename,"w") {|css_file| css_file.write(result) }
+      options[:css_filename] ||= css_filename
+      open(css_filename,"w") {|css_file| css_file.write(result)}
       nil
     else
       result
