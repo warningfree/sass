@@ -1050,6 +1050,14 @@ MESSAGE
 SCSS
   end
 
+  def test_no_lonely_else
+    assert_raise_message(Sass::SyntaxError, <<MESSAGE.rstrip) {render <<SCSS}
+Invalid CSS: @else must come after @if
+MESSAGE
+@else {foo: bar}
+SCSS
+  end
+
   # Regression
 
   def test_weird_added_space
@@ -1173,6 +1181,12 @@ b {
   }
 }
 SCSS
+  end
 
+  def test_if_error_line
+    assert_raise_line(2) {render(<<SCSS)}
+@if true {foo: bar}
+}
+SCSS
   end
 end
