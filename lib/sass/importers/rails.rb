@@ -55,15 +55,16 @@ module Sass
       end
 
       def find_template(uri, prefix, partial)
-        return @lookup_context
-          .find_all(uri, prefix, partial)
-          .find {|t| t.handler.is_a?(Sass::Plugin::TemplateHandler)}
+        return @lookup_context.
+          find_all(uri, prefix, partial).
+          find {|t| t.handler.is_a?(Sass::Plugin::TemplateHandler)}
       end
 
       def prepare_template(template, options)
         return unless template
         options[:syntax] = template.handler.syntax
         options[:filename] = template.virtual_path
+        options[:_rails_filename] = template.identifier
         options[:importer] = self
         Sass::Engine.new(template.source, options)
       end

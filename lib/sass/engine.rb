@@ -1,4 +1,5 @@
 require 'strscan'
+require 'set'
 require 'digest/sha1'
 require 'sass/cache_store'
 require 'sass/tree/node'
@@ -241,13 +242,14 @@ module Sass
     end
     alias_method :to_css, :render
 
-    # Parses the document into its parse tree.
+    # Parses the document into its parse tree. Memoized.
     #
     # @return [Sass::Tree::Node] The root of the parse tree.
     # @raise [Sass::SyntaxError] if there's an error in the document
     def to_tree
-      return _to_tree unless @options[:quiet]
-      Sass::Util.silence_sass_warnings {_to_tree}
+      @tree ||= @options[:quiet] ?
+        Sass::Util.silence_sass_warnings {_to_tree} :
+        _to_tree
     end
 
     # Returns the original encoding of the document,
@@ -260,6 +262,29 @@ module Sass
     def source_encoding
       check_encoding!
       @original_encoding
+    end
+
+    # Gets a set of all the documents
+    # that are (transitive) dependencies of this document,
+    # not including the document itself.
+    #
+    # @return [[Sass::Engine]] The dependency documents.
+    def dependencies
+      _dependencies(Set.new, engines = Set.new)
+      engines - [self]
+    end
+
+    # Helper for \{#dependencies}.
+    #
+    # @private
+    def _dependencies(seen, engines)
+      return if seen.include?(key = [@options[:filename], @options[:importer]])
+      seen << key
+      engines << self
+      to_tree.grep(Tree::ImportNode) do |n|
+        next if n.css_import?
+        n.imported_file._dependencies(seen, engines)
+      end
     end
 
     private
@@ -325,7 +350,7 @@ module Sass
       comment_tab_str = nil
       first = true
       lines = []
-      string.gsub(/\r|\n|\r\n|\r\n/, "\n").scan(/^.*?$/).each_with_index do |line, index|
+      string.gsub(/\r|\n|\r\n|\r\n/, "\n").scan(/^[^\n]*?$/).each_with_index do |line, index|
         index += (@options[:line] || 1)
         if line.strip.empty?
           lines.last.text << "\n" if lines.last && lines.last.comment?

@@ -4,15 +4,23 @@ unless defined?(Sass::RAILS_LOADED)
   module Sass::Plugin::Configuration
     # Different default options in a rails envirionment.
     def default_options
-      @default_options ||= {
-        :always_update      => false,
-        :template_location => Sass::Util.rails_root + '/public/stylesheets/sass',
-        :css_location      => Sass::Util.rails_root + '/public/stylesheets',
-        :cache_location    => Sass::Util.rails_root + '/tmp/sass-cache',
-        :always_check      => Sass::Util.rails_env == "development",
+      opts = {
         :quiet             => Sass::Util.rails_env != "production",
         :full_exception    => Sass::Util.rails_env != "production"
-      }.freeze
+      }
+
+      if Sass::Util.ap_geq?('3.1.0.beta')
+        opts.merge!(:cache => false, :load_paths => [])
+      else
+        opts.merge!(
+          :always_update      => false,
+          :template_location => Sass::Util.rails_root + '/public/stylesheets/sass',
+          :css_location      => Sass::Util.rails_root + '/public/stylesheets',
+          :cache_location    => Sass::Util.rails_root + '/tmp/sass-cache',
+          :always_check      => Sass::Util.rails_env == "development")
+      end
+
+      @default_options ||= opts.freeze
     end
   end
 
@@ -20,7 +28,7 @@ unless defined?(Sass::RAILS_LOADED)
 
   # Disable this for now, until we figure out how to get Rails
   # to pass in the view.
-  if false #Sass::Util.ap_geq?('3.1.0.beta')
+  if Sass::Util.ap_geq?('3.1.0.beta')
     require 'sass/importers/rails'
     class Sass::Plugin::TemplateHandler
       attr_reader :syntax
@@ -33,31 +41,64 @@ unless defined?(Sass::RAILS_LOADED)
 
       def call(template, view)
         rails_importer = Sass::Importers::Rails.new(view.lookup_context)
-        tree = Sass::Engine.new(template.source,
-          :syntax => @syntax,
-          :cache => false,
-          :filename => template.virtual_path,
-          :importer => rails_importer,
-          :load_paths => [rails_importer],
-          ).to_tree
+        engine = Sass::Engine.new(template.source,
+          Sass::Plugin.options.merge(
+            :syntax => @syntax,
+            :filename => template.virtual_path,
+            :importer => rails_importer,
+            :load_paths => [rails_importer] + Sass::Plugin.options[:load_paths]))
+
+        # We need to serialize/deserialize the importers to make sure
+        # that each dependency is matched up to its proper importer
+        # for when importer#mtime is called.
+        dependencies = engine.dependencies
+        importers = Sass::Util.to_hash(
+          Sass::Util.enum_with_index(dependencies).map do |e, i|
+            importer = e.options[:importer]
+            [importer, {
+                :variable => "importer_#{i}",
+                :expression => (importer == rails_importer ?
+                  "Sass::Importers::Rails.new(lookup_context)" :
+                  "Sass::Util.load(#{Sass::Util.dump(importer)})")
+              }]
+          end)
+
+        stylesheet =
+          begin
+            engine.render
+          rescue Sass::SyntaxError => e
+            Sass::Plugin::TemplateHandler.munge_exception e, view.lookup_context
+            Sass::SyntaxError.exception_to_css(e, Sass::Plugin.options)
+          end
 
         <<RUBY
-importer = Sass::Importers::Rails.new(lookup_context)
-# Since we need to re-parse the template, force Rails to re-load the source.
-# Once we pre-compute the dependencies, we can avoid doing this
-# until we know we need to update the method.
-@_template.expire!
-staleness_checker = Sass::Plugin::StalenessChecker.new(
-  Sass::Plugin.engine_options.merge(:load_paths => [importer], :cache => false))
-if staleness_checker.stylesheet_modified_since?(
-    #{template.virtual_path.inspect},
-    #{Time.now.to_i},
-    importer)
-  @_template.rerender(self)
-else
-  #{tree.render.inspect}
+begin
+  #{importers.map {|_, val| "#{val[:variable]} = #{val[:expression]}"}.join("\n")}
+  if Sass::Plugin::TemplateHandler.dependencies_changed?(
+      [#{dependencies.map {|e| "[#{e.options[:filename].inspect}, #{importers[e.options[:importer]][:variable]}]"}.join(',')}],
+      #{Time.now.to_i})
+    @_template.expire!
+    @_template.rerender(self)
+  else
+    #{stylesheet.inspect}
+  end
+rescue Sass::SyntaxError => e
+  Sass::Plugin::TemplateHandler.munge_exception e, lookup_context
+  Sass::SyntaxError.exception_to_css(e, Sass::Plugin.options)
 end
 RUBY
+      end
+
+      def self.dependencies_changed?(deps, since)
+        deps.any? {|d, i| i.mtime(d, Sass::Plugin.options) > since}
+      end
+
+      def self.munge_exception(e, lookup_context)
+        importer = Sass::Importers::Rails.new(lookup_context)
+        e.sass_backtrace.each do |bt|
+          next unless engine = importer.find(bt[:filename], Sass::Plugin.options)
+          bt[:filename] = engine.options[:_rails_filename]
+        end
       end
     end
 
