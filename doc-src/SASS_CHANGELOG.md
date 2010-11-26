@@ -7,6 +7,10 @@
 
 * Add an {Sass::Script::Functions#invert `invert` function} that takes the inverse of colors.
 
+* A new sass function called `if` can be used to emit one of two values
+  based on the truth value of the first argument.
+  For example, `if(true, 1px, 2px)` returns `1px` and `if(false, 1px, 2px)` returns `2px`.
+
 * Many performance optimizations have been made by [thedarkone](http://github.com/thedarkone).
 
 * Allow selectors to contain extra commas to make them easier to modify.
