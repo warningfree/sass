@@ -4,6 +4,7 @@ unless defined?(Sass::RAILS_LOADED)
   module Sass::Plugin::Configuration
     # Different default options in a rails envirionment.
     def default_options
+      return @default_options if @default_options
       opts = {
         :quiet             => Sass::Util.rails_env != "production",
         :full_exception    => Sass::Util.rails_env != "production",
@@ -11,7 +12,10 @@ unless defined?(Sass::RAILS_LOADED)
       }
 
       if Sass::Util.ap_geq?('3.1.0.beta')
-        opts.merge!(:load_paths => [])
+        require 'sass/importers/rails'
+        require 'sass/cache_stores/active_support'
+        opts.merge!(:load_paths => [Sass::Importers::Rails.new])
+        opts.merge!(:cache_store => Sass::CacheStores::ActiveSupport.new(Rails.cache)) if Rails.cache
       else
         opts.merge!(
           :always_update      => false,
@@ -20,7 +24,7 @@ unless defined?(Sass::RAILS_LOADED)
           :always_check      => Sass::Util.rails_env == "development")
       end
 
-      @default_options ||= opts.freeze
+      @default_options = opts.freeze
     end
   end
 
@@ -29,7 +33,6 @@ unless defined?(Sass::RAILS_LOADED)
   # Disable this for now, until we figure out how to get Rails
   # to pass in the view.
   if Sass::Util.ap_geq?('3.1.0.beta')
-    require 'sass/importers/rails'
     class Sass::Plugin::TemplateHandler
       attr_reader :syntax
 
@@ -45,8 +48,7 @@ unless defined?(Sass::RAILS_LOADED)
             :syntax => @syntax,
             :filename => template.virtual_path,
             :_rails_lookup_context => view.lookup_context,
-            :importer => Sass::Importers::Rails.new,
-            :load_paths => [Sass::Importers::Rails.new] + Sass::Plugin.engine_options[:load_paths]))
+            :importer => Sass::Importers::Rails.new))
 
         template.data[:sass_importers] = engine.dependencies.map do |e|
           [e.options[:filename], e.options[:importer]]
