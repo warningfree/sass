@@ -262,7 +262,7 @@ module Sass
       end
 
       def extend_directive
-        node(Sass::Tree::ExtendNode.new(expr!(:selector)))
+        node(Sass::Tree::ExtendNode.new(expr!(:selector), !!tok(OPTIONAL)))
       end
 
       def import_directive

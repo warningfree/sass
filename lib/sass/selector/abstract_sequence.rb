@@ -75,6 +75,16 @@ module Sass
         @extended
       end
 
+      # Marks this selector as not requiring the base selector to exist.
+      def extension_optional!
+        @extension_optional = true
+      end
+
+      # Checks whether this selector has been extended
+      def extension_optional?
+        @extension_optional
+      end
+
       # Returns a string representation of the sequence.
       # This is basically the selector string.
       #
