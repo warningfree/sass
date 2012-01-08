@@ -106,14 +106,9 @@ module Sass
         Sass::Util.intersperse(ary, " ").flatten.compact
       end
 
-      # Returns a string representation of the sequence.
-      # This is basically the selector string.
-      #
-      # @return [String]
-      def inspect
-        members.map {|m| m.inspect}.join(" ")
+      def delimeter
+        " "
       end
-
       private
 
       # Conceptually, this expands "parenthesized selectors".

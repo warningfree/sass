@@ -112,14 +112,6 @@ module Sass
         @members.map {|sel| sel.to_a}.flatten
       end
 
-      # Returns a string representation of the sequence.
-      # This is basically the selector string.
-      #
-      # @return [String]
-      def inspect
-        members.map {|m| m.inspect}.join
-      end
-
       private
 
       def _hash

@@ -52,12 +52,8 @@ module Sass
         CommaSequence.new(members.map {|seq| seq.do_extend(extends)}.flatten)
       end
 
-      # Returns a string representation of the sequence.
-      # This is basically the selector string.
-      #
-      # @return [String]
-      def inspect
-        members.map {|m| m.inspect}.join(", ")
+      def delimeter
+        ", "
       end
 
       # @see Simple#to_a

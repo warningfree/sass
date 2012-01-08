@@ -64,6 +64,23 @@ module Sass
         @has_placeholder ||=
           members.any? {|m| m.is_a?(AbstractSequence) ? m.has_placeholder? : m.is_a?(Placeholder)}
       end
+
+      # Returns a string representation of the sequence.
+      # This is basically the selector string.
+      #
+      # @return [String]
+      def inspect
+        members.map {|m| m.is_a?(String) ? m : m.inspect}.join(delimeter)
+      end
+
+      # returns the string that delimits the sequence
+      # subclasses should define this
+      #
+      # @return [String]
+      def delimeter
+        nil
+      end
+
     end
   end
 end
