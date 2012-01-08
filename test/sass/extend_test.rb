@@ -703,21 +703,25 @@ CSS
 ::foo {@extend .baz}
 SCSS
 
-    assert_equal <<CSS, render(<<SCSS)
+    silence_warnings do # warning expected here.
+      assert_equal <<CSS, render(<<SCSS)
 ::foo.baz {
   a: b; }
 CSS
 ::foo.baz {a: b}
 ::bar {@extend .baz}
 SCSS
+    end
 
-    assert_equal <<CSS, render(<<SCSS)
+    silence_warnings do # warning expected here.
+      assert_equal <<CSS, render(<<SCSS)
 ::foo.baz {
   a: b; }
 CSS
 ::foo.baz {a: b}
 ::foo(2n+1) {@extend .baz}
 SCSS
+    end
 
     assert_equal <<CSS, render(<<SCSS)
 ::foo {
@@ -873,13 +877,15 @@ SCSS
   end
 
   def test_long_extendee_requires_all_selectors
-    assert_equal <<CSS, render(<<SCSS)
+    silence_warnings do # doesn't match - warning expected
+      assert_equal <<CSS, render(<<SCSS)
 .foo {
   a: b; }
 CSS
 .foo {a: b}
 .baz {@extend .foo.bar}
 SCSS
+    end
   end
 
   def test_long_extendee_matches_supersets
@@ -1413,10 +1419,25 @@ $foo: foo;
 SCSS
   end
 
+  def test_extend_warns_when_base_class_not_found
+    assert_warning(<<MESSAGE) { render(".foo { @extend .base; }") }
+WARNING on line 1 of test_extend_warns_when_base_class_not_found_inline.scss:
+  Missing selector .base not found for @extend of .foo.
+  This will become an error in a future release.
+  To allow this condition, change to:
+    @extend .base !optional
+MESSAGE
+  end
+
+  def test_extend_does_not_warn_when_base_class_is_found
+    assert_warning("") { render(".base {a:b;} .foo { @extend .base; }") }
+  end
+
   private
 
   def render(sass, options = {})
+    options = {:syntax => :scss}.merge(options)
     munge_filename options
-    Sass::Engine.new(sass, {:syntax => :scss}.merge(options)).render
+    Sass::Engine.new(sass, options).render
   end
 end

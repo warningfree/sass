@@ -65,6 +65,16 @@ module Sass
           members.any? {|m| m.is_a?(AbstractSequence) ? m.has_placeholder? : m.is_a?(Placeholder)}
       end
 
+      # Marks this selector as extended.
+      def extended!
+        @extended = true
+      end
+
+      # Checks whether this selector has been extended
+      def extended?
+        @extended
+      end
+
       # Returns a string representation of the sequence.
       # This is basically the selector string.
       #

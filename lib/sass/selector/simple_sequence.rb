@@ -66,6 +66,7 @@ module Sass
           # seq is A, sels is B, and self is C
 
           self_without_sel = self.members - sels
+          sels.each {|s| s.extended!}
           next unless unified = seq.members.last.unify(self_without_sel)
           [sels, seq.members[0...-1] + [unified]]
         end.compact.map do |sels, seq|
