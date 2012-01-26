@@ -52,7 +52,8 @@ module Sass
         CommaSequence.new(members.map {|seq| seq.do_extend(extends)}.flatten)
       end
 
-      def delimeter
+      # @see AbstractSequence#delimiter
+      def delimiter
         ", "
       end
 

@@ -2,8 +2,9 @@ module Sass
   module Selector
     # The abstract parent class of the various selector sequence classes.
     #
-    # All subclasses should implement a `members` method
-    # that returns an array of object that respond to `#line=` and `#filename=`.
+    # All subclasses should implement a `members` method that returns an array
+    # of objects that respond to `#line=` and `#filename=`, and a `delimiter`
+    # method that returns a string used for inspection.
     class AbstractSequence
       # The line of the Sass template on which this selector was declared.
       #
@@ -90,17 +91,15 @@ module Sass
       #
       # @return [String]
       def inspect
-        members.map {|m| m.is_a?(String) ? m : m.inspect}.join(delimeter)
+        members.map {|m| m.is_a?(String) ? m : m.inspect}.join(delimiter)
       end
 
-      # returns the string that delimits the sequence
-      # subclasses should define this
+      # Returns the string that delimits the sequence.
       #
       # @return [String]
-      def delimeter
-        nil
+      def delimiter
+        Sass::Util.abstract(self)
       end
-
     end
   end
 end

@@ -66,7 +66,7 @@ module Sass
           # seq is A, sels is B, and self is C
 
           self_without_sel = self.members - sels
-          sels.each {|s| s.extended!}
+          sels.each {|s| p [:extended, s]; s.extended!}
           next unless unified = seq.members.last.unify(self_without_sel)
           [sels, seq.members[0...-1] + [unified]]
         end.compact.map do |sels, seq|
@@ -111,6 +111,11 @@ module Sass
       # @see Simple#to_a
       def to_a
         @members.map {|sel| sel.to_a}.flatten
+      end
+
+      # @see AbstractSequence#delimiter
+      def delimiter
+        ""
       end
 
       private

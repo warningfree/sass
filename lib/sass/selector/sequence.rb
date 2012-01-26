@@ -108,9 +108,11 @@ module Sass
         Sass::Util.intersperse(ary, " ").flatten.compact
       end
 
-      def delimeter
+      # @see AbstractSequence#delimiter
+      def delimiter
         " "
       end
+
       private
 
       # Conceptually, this expands "parenthesized selectors".
