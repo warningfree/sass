@@ -6,11 +6,9 @@ module Sass::Tree
   # @see Sass::Tree
   class CommentNode < Node
     # The text of the comment, not including `/*` and `*/`.
-    # Interspersed with {Sass::Script::Node}s representing `#{}`-interpolation
-    # if this is a loud comment.
     #
-    # @return [Array<String, Sass::Script::Node>]
-    attr_accessor :value
+    # @return [Sass::InterpString]
+    attr_reader :value
 
     # The text of the comment
     # after any interpolated SassScript has been resolved.
@@ -26,10 +24,10 @@ module Sass::Tree
     # @return [Symbol]
     attr_accessor :type
 
-    # @param value [Array<String, Sass::Script::Node>] See \{#value}
+    # @param value [Sass::InterpString] See \{#value}
     # @param type [Symbol] See \{#type}
     def initialize(value, type)
-      @value = Sass::Util.with_extracted_values(value) {|str| normalize_indentation str}
+      @value = value.with_extracted_values {|str| normalize_indentation str}
       @type = type
       super()
     end
@@ -61,10 +59,7 @@ module Sass::Tree
     #
     # @return [Fixnum]
     def lines
-      @value.inject(0) do |s, e|
-        next s + e.count("\n") if e.is_a?(String)
-        next s
-      end
+      @value.as_string.count("\n")
     end
 
     private

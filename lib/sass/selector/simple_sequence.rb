@@ -76,7 +76,8 @@ module Sass
 
         return super_seq.members if @members.size == 1
         unless super_seq.members.last.is_a?(SimpleSequence)
-          raise Sass::SyntaxError.new("Invalid parent selector: " + super_seq.to_a.join)
+          raise Sass::SyntaxError.new(
+            "Invalid parent selector: " + super_seq.to_interp_str.to_src)
         end
 
         super_seq.members[0...-1] +
@@ -148,11 +149,11 @@ module Sass
         (base.nil? || base.eql?(sseq.base)) && rest.subset?(sseq.rest)
       end
 
-      # @see Simple#to_a
-      def to_a
-        res = @members.map {|sel| sel.to_a}.flatten
-        res << '!' if subject?
-        res
+      # @see Simple#to_interp_str
+      def to_interp_str
+        str = Sass::InterpString.new(@members.map {|sel| sel.to_interp_str})
+        str << '!' if subject?
+        str
       end
 
       # Returns a string representation of the sequence.

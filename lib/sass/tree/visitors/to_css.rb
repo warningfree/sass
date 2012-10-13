@@ -145,7 +145,7 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
 
       joined_rules = node.resolved_rules.members.map do |seq|
         next if seq.has_placeholder?
-        rule_part = seq.to_a.join
+        rule_part = seq.to_interp_str.to_s
         if node.style == :compressed
           rule_part.gsub!(/([^,])\s*\n\s*/m, '\1 ')
           rule_part.gsub!(/\s*([,+>])\s*/m, '\1')
@@ -209,15 +209,16 @@ class Sass::Tree::Visitors::ToCss < Sass::Tree::Visitors::Base
   def debug_info_rule(debug_info, options)
     node = Sass::Tree::DirectiveNode.resolved("@media -sass-debug-info")
     Sass::Util.hash_to_a(debug_info.map {|k, v| [k.to_s, v.to_s]}).each do |k, v|
-      rule = Sass::Tree::RuleNode.new([""])
+      rule = Sass::Tree::RuleNode.new
       rule.resolved_rules = Sass::Selector::CommaSequence.new(
         [Sass::Selector::Sequence.new(
             [Sass::Selector::SimpleSequence.new(
-                [Sass::Selector::Element.new(k.to_s.gsub(/[^\w-]/, "\\\\\\0"), nil)],
+                [Sass::Selector::Element.new(
+                    Sass::InterpString.new(k.to_s.gsub(/[^\w-]/, "\\\\\\0")), nil)],
                 false)
             ])
         ])
-      prop = Sass::Tree::PropNode.new([""], Sass::Script::String.new(''), :new)
+      prop = Sass::Tree::PropNode.new(Sass::InterpString.new, Sass::Script::String.new(''), :new)
       prop.resolved_name = "font-family"
       prop.resolved_value = Sass::SCSS::RX.escape_ident(v.to_s)
       rule << prop

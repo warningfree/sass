@@ -29,9 +29,9 @@ module Sass
     # The function of this is to be replaced by the parent selector
     # in the nested hierarchy.
     class Parent < Simple
-      # @see Selector#to_a
-      def to_a
-        ["&"]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        Sass::InterpString.new("&")
       end
 
       # Always raises an exception.
@@ -47,17 +47,17 @@ module Sass
     class Class < Simple
       # The class name.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :name
 
-      # @param name [Array<String, Sass::Script::Node>] The class name
+      # @param name [Sass::InterpString] The class name
       def initialize(name)
         @name = name
       end
 
-      # @see Selector#to_a
-      def to_a
-        [".", *@name]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        Sass::InterpString.new(".") + @name
       end
 
       # @see AbstractSequence#specificity
@@ -70,17 +70,17 @@ module Sass
     class Id < Simple
       # The id name.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :name
 
-      # @param name [Array<String, Sass::Script::Node>] The id name
+      # @param name [Sass::InterpString] The id name
       def initialize(name)
         @name = name
       end
 
-      # @see Selector#to_a
-      def to_a
-        ["#", *@name]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        Sass::InterpString.new("#") + @name
       end
 
       # Returns `nil` if `sels` contains an {Id} selector
@@ -105,17 +105,17 @@ module Sass
     class Placeholder < Simple
       # The placeholder name.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :name
 
-      # @param name [Array<String, Sass::Script::Node>] The placeholder name
+      # @param name [Sass::InterpString] The placeholder name
       def initialize(name)
         @name = name
       end
 
-      # @see Selector#to_a
-      def to_a
-        ["%", *@name]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        Sass::InterpString.new("%") + @name
       end
 
       # @see AbstractSequence#specificity
@@ -126,22 +126,20 @@ module Sass
 
     # A universal selector (`*` in CSS).
     class Universal < Simple
-      # The selector namespace.
-      # `nil` means the default namespace,
-      # `[""]` means no namespace,
-      # `["*"]` means any namespace.
+      # The selector namespace. `nil` means the default namespace, empty means
+      # no namespace, `"*"` means any namespace.
       #
-      # @return [Array<String, Sass::Script::Node>, nil]
+      # @return [Sass::InterpString?]
       attr_reader :namespace
 
-      # @param namespace [Array<String, Sass::Script::Node>, nil] See \{#namespace}
+      # @param namespace [Sass::InterpString?] See \{#namespace}
       def initialize(namespace)
         @namespace = namespace
       end
 
-      # @see Selector#to_a
-      def to_a
-        @namespace ? @namespace + ["|*"] : ["*"]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        @namespace ? @namespace + "|*" : Sass::InterpString.new("*")
       end
 
       # Unification of a universal selector is somewhat complicated,
@@ -175,7 +173,7 @@ module Sass
           when Universal; :universal
           when Element; sels.first.name
           else
-            return [self] + sels unless namespace.nil? || namespace == ['*']
+            return [self] + sels unless namespace.nil? || namespace == InterpString.new('*')
             return sels unless sels.empty?
             return [self]
           end
@@ -195,7 +193,7 @@ module Sass
     class Element < Simple
       # The element name.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :name
 
       # The selector namespace.
@@ -203,19 +201,19 @@ module Sass
       # `[""]` means no namespace,
       # `["*"]` means any namespace.
       #
-      # @return [Array<String, Sass::Script::Node>, nil]
+      # @return [Sass::InterpString?]
       attr_reader :namespace
 
-      # @param name [Array<String, Sass::Script::Node>] The element name
-      # @param namespace [Array<String, Sass::Script::Node>, nil] See \{#namespace}
+      # @param name [Sass::InterpString] The element name
+      # @param namespace [Sass::InterpString?] See \{#namespace}
       def initialize(name, namespace)
         @name = name
         @namespace = namespace
       end
 
-      # @see Selector#to_a
-      def to_a
-        @namespace ? @namespace + ["|"] + @name : @name
+      # @see Simple#to_interp_str
+      def to_interp_str
+        @namespace ? @namespace + "|" + @name : @name
       end
 
       # Unification of an element selector is somewhat complicated,
@@ -270,9 +268,9 @@ module Sass
         @script = script
       end
 
-      # @see Selector#to_a
-      def to_a
-        [@script]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        @script
       end
 
       # Always raises an exception.
@@ -288,7 +286,7 @@ module Sass
     class Attribute < Simple
       # The attribute name.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :name
 
       # The attribute namespace.
@@ -296,7 +294,7 @@ module Sass
       # `[""]` means no namespace,
       # `["*"]` means any namespace.
       #
-      # @return [Array<String, Sass::Script::Node>, nil]
+      # @return [Sass::InterpString?]
       attr_reader :namespace
 
       # The matching operator, e.g. `"="` or `"^="`.
@@ -306,19 +304,19 @@ module Sass
 
       # The right-hand side of the operator.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :value
 
       # Flags for the attribute selector (e.g. `i`).
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :flags
 
-      # @param name [Array<String, Sass::Script::Node>] The attribute name
-      # @param namespace [Array<String, Sass::Script::Node>, nil] See \{#namespace}
+      # @param name [Sass::InterpString] The attribute name
+      # @param namespace [Sass::InterpString?] See \{#namespace}
       # @param operator [String] The matching operator, e.g. `"="` or `"^="`
-      # @param value [Array<String, Sass::Script::Node>] See \{#value}
-      # @param value [Array<String, Sass::Script::Node>] See \{#flags}
+      # @param value [Sass::InterpString] See \{#value}
+      # @param value [Sass::InterpString] See \{#flags}
       def initialize(name, namespace, operator, value, flags)
         @name = name
         @namespace = namespace
@@ -327,13 +325,13 @@ module Sass
         @flags = flags
       end
 
-      # @see Selector#to_a
-      def to_a
-        res = ["["]
-        res.concat(@namespace) << "|" if @namespace
-        res.concat @name
-        (res << @operator).concat @value if @value
-        (res << " ").concat @flags if @flags
+      # @see Simple#to_interp_str
+      def to_interp_str
+        res = Sass::InterpString.new("[")
+        res << @namespace << "|" if @namespace
+        res << @name
+        res << @operator << @value if @value
+        res << " " << @flags if @flags
         res << "]"
       end
 
@@ -362,7 +360,7 @@ module Sass
 
       # The name of the selector.
       #
-      # @return [Array<String, Sass::Script::Node>]
+      # @return [Sass::InterpString]
       attr_reader :name
 
       # The argument to the selector,
@@ -372,12 +370,12 @@ module Sass
       # Note that this should not include SassScript nodes
       # after resolution has taken place.
       #
-      # @return [Array<String, Sass::Script::Node>, nil]
+      # @return [Sass::InterpString?]
       attr_reader :arg
 
       # @param type [Symbol] See \{#type}
-      # @param name [Array<String, Sass::Script::Node>] The name of the selector
-      # @param arg [nil, Array<String, Sass::Script::Node>] The argument to the selector,
+      # @param name [Sass::InterpString] The name of the selector
+      # @param arg [Sass::InterpString?] The argument to the selector,
       #   or nil if no argument was given
       def initialize(type, name, arg)
         @type = type
@@ -386,13 +384,13 @@ module Sass
       end
 
       def final?
-        type == :class && FINAL_SELECTORS.include?(name.first)
+        type == :class && FINAL_SELECTORS.include?(name.to_s)
       end
 
-      # @see Selector#to_a
-      def to_a
-        res = [@type == :class ? ":" : "::"] + @name
-        (res << "(").concat(Sass::Util.strip_string_array(@arg)) << ")" if @arg
+      # @see Simple#to_interp_str
+      def to_interp_str
+        res = Sass::InterpString.new(@type == :class ? ":" : "::") + @name
+        res << "(" << @arg.strip! << ")" if @arg
         res
       end
 
@@ -435,9 +433,10 @@ module Sass
         @selector = selector
       end
 
-      # @see Selector#to_a
-      def to_a
-        [":", @name, "("] + @selector.to_a + [")"]
+      # @see Simple#to_interp_str
+      def to_interp_str
+        Sass::InterpString.new(":") << @name <<
+          "(" << @selector.to_interp_str << ")"
       end
 
       # @see AbstractSequence#specificity

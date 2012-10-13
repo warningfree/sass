@@ -47,9 +47,9 @@ module Sass::Media
     # the interpolation is resolved and the strings are joined together, this
     # will be the string representation of this query.
     #
-    # @return [Array<String, Sass::Script::Node>]
-    def to_a
-      Sass::Util.intersperse(queries.map {|q| q.to_a}, ', ').flatten
+    # @return [Sass::InterpString]
+    def to_interp_str
+      Sass::InterpString.new(Sass::Util.intersperse(queries.map {|q| q.to_interp_str}, ', '))
     end
 
     # Returns a deep copy of this query list and all its children.
@@ -70,7 +70,7 @@ module Sass::Media
     # parsed as CSS, it contains a single string (accessible via
     # \{#resolved_modifier}).
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString]
     attr_accessor :modifier
 
     # The type of the query (e.g. `"screen"` or `"print"`).
@@ -79,7 +79,7 @@ module Sass::Media
     # parsed as CSS, it contains a single string (accessible via
     # \{#resolved_type}).
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString]
     attr_accessor :type
 
     # The trailing expressions in the query.
@@ -87,12 +87,12 @@ module Sass::Media
     # When parsed as Sass code, each expression contains strings and SassScript
     # nodes. When parsed as CSS, each one contains a single string.
     #
-    # @return [Array<Array<String, Sass::Script::Node>>]
+    # @return [Array<Sass::InterpString>]
     attr_accessor :expressions
 
-    # @param modifier [Array<String, Sass::Script::Node>] See \{#modifier}
-    # @param type [Array<String, Sass::Script::Node>] See \{#type}
-    # @param expressions [Array<Array<String, Sass::Script::Node>>] See \{#expressions}
+    # @param modifier [Sass::InterpString] See \{#modifier}
+    # @param type [Sass::InterpString] See \{#type}
+    # @param expressions [Array<Sass::InterpString>] See \{#expressions}
     def initialize(modifier, type, expressions)
       @modifier = modifier
       @type = type
@@ -103,14 +103,14 @@ module Sass::Media
     # @return [String]
     def resolved_modifier
       # modifier should contain only a single string
-      modifier.first || ''
+      modifier.to_s
     end
 
     # See \{#type}.
     # @return [String]
     def resolved_type
       # type should contain only a single string
-      type.first || ''
+      type.to_s
     end
 
     # Merges this query with another. The returned query queries for
@@ -140,9 +140,9 @@ module Sass::Media
         type = t1
         mod = m1.empty? ? m2 : m1
       end
-      q = Query.new([], [], other.expressions + expressions)
-      q.type = [type]
-      q.modifier = [mod]
+      q = Query.new(Sass::InterpString.new, Sass::InterpString.new, other.expressions + expressions)
+      q.type = Sass::InterpString.new(type)
+      q.modifier = Sass::InterpString.new(mod)
       return q
     end
 
@@ -170,24 +170,22 @@ module Sass::Media
     # @return [String]
     def to_src(options)
       src = ''
-      src << Sass::Media._interp_to_src(modifier, options)
+      src << modifier.to_src(options)
       src << ' ' unless modifier.empty?
-      src << Sass::Media._interp_to_src(type, options)
+      src << type.to_src(options)
       src << ' and ' unless type.empty? || expressions.empty?
-      src << expressions.map do |e|
-        Sass::Media._interp_to_src(e, options)
-      end.join(' and ')
+      src << expressions.map {|e| e.to_src(options)}.join(' and ')
       src
     end
 
-    # @see \{MediaQuery#to\_a}
-    def to_a
-      res = []
-      res += modifier
+    # @see \{MediaQuery#to\_interp\_str}
+    def to_interp_str
+      res = Sass::InterpString.new
+      res << modifier
       res << ' ' unless modifier.empty?
-      res += type
+      res << type
       res << ' and ' unless type.empty? || expressions.empty?
-      res += Sass::Util.intersperse(expressions, ' and ').flatten
+      res << Sass::InterpString.new(Sass::Util.intersperse(expressions, ' and '))
       res
     end
 
@@ -195,22 +193,7 @@ module Sass::Media
     #
     # @return [Query]
     def deep_copy
-      Query.new(
-        modifier.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c},
-        type.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c},
-        expressions.map {|e| e.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}})
+      Query.new(modifier.deep_copy, type.deep_copy, expressions.map {|e| e.deep_copy})
     end
-  end
-
-  # Converts an interpolation array to source.
-  #
-  # @param [Array<String, Sass::Script::Node>] The interpolation array to convert.
-  # @param options [{Symbol => Object}] An options hash (see {Sass::CSS#initialize}).
-  # @return [String]
-  def self._interp_to_src(interp, options)
-    interp.map do |r|
-      next r if r.is_a?(String)
-      "\#{#{r.to_sass(options)}}"
-    end.join
   end
 end

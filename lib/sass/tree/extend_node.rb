@@ -11,10 +11,9 @@ module Sass::Tree
     # @return [Selector::CommaSequence]
     attr_accessor :resolved_selector
 
-    # The CSS selector to extend, interspersed with {Sass::Script::Node}s
-    # representing `#{}`-interpolation.
+    # The CSS selector to extend.
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString]
     attr_accessor :selector
 
     # Whether the `@extend` is allowed to match no selectors or not.
@@ -22,10 +21,7 @@ module Sass::Tree
     # @return [Boolean]
     def optional?; @optional; end
 
-    # @param selector [Array<String, Sass::Script::Node>]
-    #   The CSS selector to extend,
-    #   interspersed with {Sass::Script::Node}s
-    #   representing `#{}`-interpolation.
+    # @param selector [Sass::InterpString] The CSS selector to extend
     # @param optional [Boolean] See \{#optional}
     def initialize(selector, optional)
       @selector = selector

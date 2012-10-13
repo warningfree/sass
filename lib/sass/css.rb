@@ -96,7 +96,7 @@ module Sass
       root.children.each do |child|
         next parse_selectors(child) if child.is_a?(Tree::DirectiveNode)
         next unless child.is_a?(Tree::RuleNode)
-        parser = Sass::SCSS::CssParser.new(child.rule.first, child.filename, child.line)
+        parser = Sass::SCSS::CssParser.new(child.rule.to_s, child.filename, child.line)
         child.parsed_rules = parser.parse_selector
       end
     end
@@ -124,7 +124,7 @@ module Sass
           next child
         end
         child.parsed_rules.members.map do |seq|
-          node = Tree::RuleNode.new([])
+          node = Tree::RuleNode.new
           node.parsed_rules = make_cseq(seq)
           node.children = child.children
           node
@@ -165,7 +165,7 @@ module Sass
         first, rest = seq.members.first, seq.members[1..-1]
 
         if current_rule.nil? || first_sseq(current_rule) != first
-          current_rule = Tree::RuleNode.new([])
+          current_rule = Tree::RuleNode.new
           current_rule.parsed_rules = make_seq(first)
         end
 
@@ -216,7 +216,7 @@ module Sass
         last_simple_subject = rest.empty? && sseq.subject?
         if current_rule.nil? || first_sseq(current_rule).members != firsts ||
             !!first_sseq(current_rule).subject? != !!last_simple_subject
-          current_rule = Tree::RuleNode.new([])
+          current_rule = Tree::RuleNode.new
           current_rule.parsed_rules = make_sseq(last_simple_subject, *firsts)
         end
 
@@ -345,7 +345,7 @@ module Sass
       root.children.each do |child|
         next dump_selectors(child) if child.is_a?(Tree::DirectiveNode)
         next unless child.is_a?(Tree::RuleNode)
-        child.rule = [child.parsed_rules.to_s]
+        child.rule = Sass::InterpString.new(child.parsed_rules.to_s)
         dump_selectors(child)
       end
     end

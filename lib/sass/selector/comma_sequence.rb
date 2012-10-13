@@ -71,11 +71,12 @@ module Sass
         members.map {|m| m.inspect}.join(", ")
       end
 
-      # @see Simple#to_a
-      def to_a
-        arr = Sass::Util.intersperse(@members.map {|m| m.to_a}, ", ").flatten
-        arr.delete("\n")
-        arr
+      # @see Simple#to_interp_str
+      def to_interp_str
+        str = Sass::InterpString.new(
+          Sass::Util.intersperse(@members.map {|m| m.to_interp_str}, ", "))
+        str.contents.delete("\n")
+        str
       end
 
       private

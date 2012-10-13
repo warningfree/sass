@@ -20,8 +20,8 @@ module Sass
       # When the interpolation is resolved and the strings are joined together,
       # this will be the string representation of this node.
       #
-      # @return [Array<String, Sass::Script::Node>]
-      def to_a
+      # @return [Sass::InterpString]
+      def to_interp_str
         Sass::Util.abstract(self)
       end
 
@@ -30,7 +30,7 @@ module Sass
       #
       # @return [String]
       def inspect
-        to_a.map {|e| e.is_a?(Sass::Script::Node) ? "\#{#{e.to_sass}}" : e}.join
+        to_interp_str.to_src
       end
 
       # @see \{#inspect}
@@ -41,25 +41,26 @@ module Sass
 
       # Returns a hash code for this selector object.
       #
-      # By default, this is based on the value of \{#to\_a},
+      # By default, this is based on the value of \{#to\_interp\_str},
       # so if that contains information irrelevant to the identity of the selector,
       # this should be overridden.
       #
       # @return [Fixnum]
       def hash
-        @_hash ||= to_a.hash
+        @_hash ||= to_interp_str.hash
       end
 
       # Checks equality between this and another object.
       #
-      # By default, this is based on the value of \{#to\_a},
+      # By default, this is based on the value of \{#to\_interp\_str},
       # so if that contains information irrelevant to the identity of the selector,
       # this should be overridden.
       #
       # @param other [Object] The object to test equality against
       # @return [Boolean] Whether or not this is equal to `other`
       def eql?(other)
-        other.class == self.class && other.hash == self.hash && other.to_a.eql?(to_a)
+        other.class == self.class && other.hash == self.hash &&
+          other.to_interp_str.eql?(to_interp_str)
       end
       alias_method :==, :eql?
 
@@ -109,9 +110,9 @@ module Sass
       #   could be found at all.
       #   If the second value is `false`, the first should be ignored.
       def unify_namespaces(ns1, ns2)
-        return nil, false unless ns1 == ns2 || ns1.nil? || ns1 == ['*'] || ns2.nil? || ns2 == ['*']
-        return ns2, true if ns1 == ['*']
-        return ns1, true if ns2 == ['*']
+        return ns2, true if ns1 == InterpString.new('*')
+        return ns1, true if ns2 == InterpString.new('*')
+        return nil, false unless ns1 == ns2 || ns1.nil? || ns2.nil?
         return ns1 || ns2, true
       end
     end

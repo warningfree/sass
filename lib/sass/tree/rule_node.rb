@@ -9,12 +9,9 @@ module Sass::Tree
     # The character used to include the parent selector
     PARENT = '&'
 
-    # The CSS selector for this rule,
-    # interspersed with {Sass::Script::Node}s
-    # representing `#{}`-interpolation.
-    # Any adjacent strings will be merged together.
+    # The CSS selector for this rule.
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString]
     attr_accessor :rule
 
     # The CSS selector for this rule,
@@ -57,11 +54,9 @@ module Sass::Tree
     # @return [Array<String>]
     attr_accessor :stack_trace
 
-    # @param rule [Array<String, Sass::Script::Node>]
-    #   The CSS rule. See \{#rule}
-    def initialize(rule)
-      merged = Sass::Util.merge_adjacent_strings(rule)
-      @rule = Sass::Util.strip_string_array(merged)
+    # @param rule [Sass::InterpString] The CSS rule. See \{#rule}
+    def initialize(rule=Sass::InterpString.new)
+      @rule = rule.strip!
       @tabs = 0
       try_to_parse_non_interpolated_rules
       super()
@@ -92,14 +87,14 @@ module Sass::Tree
     #
     # @param node [RuleNode] The other node
     def add_rules(node)
-      @rule = Sass::Util.strip_string_array(
-        Sass::Util.merge_adjacent_strings(@rule + ["\n"] + node.rule))
+      @rule << "\n" << node.rule
+      @rule.strip!
       try_to_parse_non_interpolated_rules
     end
 
     # @return [Boolean] Whether or not this rule is continued on the next line
     def continued?
-      last = @rule.last
+      last = @rule.contents.last
       last.is_a?(String) && last[-1] == ?,
     end
 
@@ -121,10 +116,10 @@ module Sass::Tree
     private
 
     def try_to_parse_non_interpolated_rules
-      if @rule.all? {|t| t.kind_of?(String)}
+      unless @rule.dynamic?
         # We don't use real filename/line info because we don't have it yet.
         # When we get it, we'll set it on the parsed rules if possible.
-        parser = Sass::SCSS::StaticParser.new(@rule.join.strip, '', 1)
+        parser = Sass::SCSS::StaticParser.new(@rule.to_s, '', 1)
         @parsed_rules = parser.parse_selector rescue nil
       end
     end

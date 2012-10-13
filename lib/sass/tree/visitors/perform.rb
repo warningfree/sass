@@ -132,7 +132,7 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   # Removes this node from the tree if it's a silent comment.
   def visit_comment(node)
     return [] if node.invisible?
-    node.resolved_value = run_interp_no_strip(node.value)
+    node.resolved_value = node.value.run(@environment)
     node.resolved_value.gsub!(/\\([\\#])/, '\1')
     node
   end
@@ -164,7 +164,7 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   # Runs SassScript interpolation in the selector,
   # and then parses the result into a {Sass::Selector::CommaSequence}.
   def visit_extend(node)
-    parser = Sass::SCSS::StaticParser.new(run_interp(node.selector), node.filename, node.line)
+    parser = Sass::SCSS::StaticParser.new(node.selector.run(@environment).strip, node.filename, node.line)
     node.resolved_selector = parser.parse_selector
     node
   end
@@ -292,7 +292,7 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
 
   # Runs any SassScript that may be embedded in a property.
   def visit_prop(node)
-    node.resolved_name = run_interp(node.name)
+    node.resolved_name = node.name.run(@environment).strip
     val = node.value.perform(@environment)
     node.resolved_value = val.to_s
     yield
@@ -306,9 +306,8 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   # Runs SassScript interpolation in the selector,
   # and then parses the result into a {Sass::Selector::CommaSequence}.
   def visit_rule(node)
-    rule = node.rule
-    rule = rule.map {|e| e.is_a?(String) && e != ' ' ? e.strip : e} if node.style == :compressed
-    parser = Sass::SCSS::StaticParser.new(run_interp(node.rule), node.filename, node.line)
+    node.rule.contents.map! {|e| e.is_a?(String) && e != ' ' ? e.strip : e} if node.style == :compressed
+    parser = Sass::SCSS::StaticParser.new(node.rule.run(@environment), node.filename, node.line)
     node.parsed_rules ||= parser.parse_selector
     if node.options[:trace_selectors]
       @stack.push(:filename => node.filename, :line => node.line)
@@ -352,12 +351,12 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   end
 
   def visit_directive(node)
-    node.resolved_value = run_interp(node.value)
+    node.resolved_value = node.value.run(@environment).strip
     yield
   end
 
   def visit_media(node)
-    parser = Sass::SCSS::StaticParser.new(run_interp(node.query), node.filename, node.line)
+    parser = Sass::SCSS::StaticParser.new(node.query.run(@environment).strip, node.filename, node.line)
     node.resolved_query ||= parser.parse_media_query_list
     yield
   end
@@ -369,9 +368,10 @@ class Sass::Tree::Visitors::Perform < Sass::Tree::Visitors::Base
   end
 
   def visit_cssimport(node)
-    node.resolved_uri = run_interp([node.uri])
+    node.resolved_uri = Sass::InterpString.new(node.uri).run(@environment).strip
     if node.query
-      parser = Sass::SCSS::StaticParser.new(run_interp(node.query), node.filename, node.line)
+      parser = Sass::SCSS::StaticParser.new(
+        node.query.run(@environment).strip, node.filename, node.line)
       node.resolved_query ||= parser.parse_media_query_list
     end
     yield

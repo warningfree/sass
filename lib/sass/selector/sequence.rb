@@ -33,7 +33,7 @@ module Sass
       # @return [Array<SimpleSequence, String|Array<Sass::Tree::Node, String>>]
       attr_reader :members
 
-      # @param seqs_and_ops [Array<SimpleSequence, String|Array<Sass::Tree::Node, String>>] See \{#members}
+      # @param seqs_and_ops [Array<SimpleSequence, String|Sass::InterpString>] See \{#members}
       def initialize(seqs_and_ops)
         @members = seqs_and_ops
       end
@@ -103,10 +103,13 @@ module Sass
         members.last.superselector?(sseq)
       end
 
-      # @see Simple#to_a
-      def to_a
-        ary = @members.map {|seq_or_op| seq_or_op.is_a?(SimpleSequence) ? seq_or_op.to_a : seq_or_op}
-        Sass::Util.intersperse(ary, " ").flatten.compact
+      # @see Simple#to_interp_str
+      def to_interp_str
+        ary = @members.map do |seq_or_op|
+          next seq_or_op.to_interp_str if seq_or_op.is_a?(SimpleSequence)
+          next Sass::InterpString.new(seq_or_op)
+        end
+        Sass::InterpString.new(Sass::Util.intersperse(ary, " "))
       end
 
       # Returns a string representation of the sequence.
@@ -421,7 +424,9 @@ module Sass
       # @param seq2 [Array<SimpleSequence or String>]
       # @return [Boolean]
       def parent_superselector?(seq1, seq2)
-        base = Sass::Selector::SimpleSequence.new([Sass::Selector::Placeholder.new('<temp>')], false)
+        base = Sass::Selector::SimpleSequence.new(
+          [Sass::Selector::Placeholder.new(Sass::InterpString.new('<temp>'))],
+          false)
         _superselector?(seq1 + [base], seq2 + [base])
       end
 

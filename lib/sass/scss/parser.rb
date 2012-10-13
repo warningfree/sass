@@ -116,7 +116,7 @@ module Sass
         end
 
         type = if silent then :silent elsif loud then :loud else :normal end
-        comment = Sass::Tree::CommentNode.new(value, type)
+        comment = Sass::Tree::CommentNode.new(Sass::InterpString.new(value), type)
         comment.line = line
         node << comment
       end
@@ -143,7 +143,7 @@ module Sass
         # Some take no arguments at all.
         val = expr || selector
         val = val ? ["@#{name} "] + Sass::Util.strip_string_array(val) : ["@#{name}"]
-        directive_body(val)
+        directive_body(Sass::InterpString.new(val))
       end
 
       def directive_body(value)
@@ -292,7 +292,7 @@ module Sass
         selector = expr!(:selector_sequence)
         optional = tok(OPTIONAL)
         ss
-        node(Sass::Tree::ExtendNode.new(selector, !!optional))
+        node(Sass::Tree::ExtendNode.new(Sass::InterpString.new(selector), !!optional))
       end
 
       def import_directive
@@ -313,7 +313,8 @@ module Sass
           str = sass_script(:parse_string)
           media = media_query_list
           ss
-          return node(Tree::CssImportNode.new(str, media.to_a))
+          return node(
+            Tree::CssImportNode.new(str, media && media.to_interp_str))
         end
 
         path = @scanner[1] || @scanner[2]
@@ -321,7 +322,7 @@ module Sass
 
         media = media_query_list
         if path =~ /^(https?:)?\/\// || media || use_css_import?
-          node = Sass::Tree::CssImportNode.new(str, media.to_a)
+          node = Sass::Tree::CssImportNode.new(str, media && media.to_interp_str)
         else
           node = Sass::Tree::ImportNode.new(path.strip)
         end
@@ -332,7 +333,7 @@ module Sass
       def use_css_import?; false; end
 
       def media_directive
-        block(node(Sass::Tree::MediaNode.new(media_query_list.to_a)), :directive)
+        block(node(Sass::Tree::MediaNode.new(media_query_list.to_interp_str)), :directive)
       end
 
       # http://www.w3.org/TR/css3-mediaqueries/#syntax
@@ -355,12 +356,21 @@ module Sass
           ident2 = interp_ident
           ss
           if ident2 && ident2.length == 1 && ident2[0].is_a?(String) && ident2[0].downcase == 'and'
-            query = Sass::Media::Query.new([], ident1, [])
+            query = Sass::Media::Query.new(
+              Sass::InterpString.new,
+              Sass::InterpString.new(ident1),
+              [])
           else
             if ident2
-              query = Sass::Media::Query.new(ident1, ident2, [])
+              query = Sass::Media::Query.new(
+                Sass::InterpString.new(ident1),
+                Sass::InterpString.new(ident2),
+                [])
             else
-              query = Sass::Media::Query.new([], ident1, [])
+              query = Sass::Media::Query.new(
+                Sass::InterpString.new,
+                Sass::InterpString.new(ident1),
+                [])
             end
             return query unless tok(/and/i)
             ss
@@ -372,7 +382,10 @@ module Sass
         else
           return unless expr = media_expr
         end
-        query ||= Sass::Media::Query.new([], [], [])
+        query ||= Sass::Media::Query.new(
+          Sass::InterpString.new,
+          Sass::InterpString.new,
+          [])
         query.expressions << expr
 
         ss
@@ -422,7 +435,7 @@ module Sass
           break unless c = tok(/,/)
           res << c
         end
-        directive_body(res.flatten)
+        directive_body(Sass::InterpString.new(res.flatten))
       end
 
       def moz_document_function
@@ -512,7 +525,7 @@ module Sass
 
       def ruleset
         return unless rules = selector_sequence
-        block(node(Sass::Tree::RuleNode.new(rules.flatten.compact)), :ruleset)
+        block(node(Sass::Tree::RuleNode.new(Sass::InterpString.new(rules.flatten.compact))), :ruleset)
       end
 
       def block(node, context)
@@ -603,7 +616,7 @@ module Sass
 
       def selector
         return unless sel = _selector
-        sel.to_a
+        sel.to_interp_str.contents
       end
 
       def selector_comma_sequence
@@ -693,19 +706,19 @@ module Sass
       def class_selector
         return unless tok(/\./)
         @expected = "class name"
-        Selector::Class.new(merge(expr!(:interp_ident)))
+        Selector::Class.new(Sass::InterpString.new(expr!(:interp_ident)))
       end
 
       def id_selector
         return unless tok(/#(?!\{)/)
         @expected = "id name"
-        Selector::Id.new(merge(expr!(:interp_name)))
+        Selector::Id.new(Sass::InterpString.new(expr!(:interp_name)))
       end
 
       def placeholder_selector
         return unless tok(/%/)
         @expected = "placeholder name"
-        Selector::Placeholder.new(merge(expr!(:interp_ident)))
+        Selector::Placeholder.new(Sass::InterpString.new(expr!(:interp_ident)))
       end
 
       def element_name
@@ -713,9 +726,11 @@ module Sass
         return unless ns || name
 
         if name == '*'
-          Selector::Universal.new(merge(ns))
+          Selector::Universal.new(ns && Sass::InterpString.new(ns))
         else
-          Selector::Element.new(merge(name), merge(ns))
+          Selector::Element.new(
+            name && Sass::InterpString.new(name),
+            ns && Sass::InterpString.new(ns))
         end
       end
 
@@ -753,7 +768,12 @@ module Sass
         flags = interp_ident || interp_string
         tok!(/\]/)
 
-        Selector::Attribute.new(merge(name), merge(ns), op, merge(val), merge(flags))
+        Selector::Attribute.new(
+          Sass::InterpString.new(name),
+          ns && Sass::InterpString.new(ns),
+          op,
+          val && Sass::InterpString.new(val),
+          flags && Sass::InterpString.new(flags))
       end
 
       def attrib_name!
@@ -787,7 +807,8 @@ module Sass
           end
           tok!(/\)/)
         end
-        Selector::Pseudo.new(s == ':' ? :class : :element, merge(name), merge(arg))
+        Selector::Pseudo.new(s == ':' ? :class : :element,
+          Sass::InterpString.new(name), arg && Sass::InterpString.new(arg))
       end
 
       def pseudo_arg
@@ -846,7 +867,8 @@ module Sass
         ss
         require_block = tok?(/\{/)
 
-        node = node(Sass::Tree::PropNode.new(name.flatten.compact, value, :new))
+        node = node(Sass::Tree::PropNode.new(
+            Sass::InterpString.new(name.flatten.compact), value, :new))
 
         return node unless require_block
         nested_properties! node, space
@@ -1016,10 +1038,6 @@ MESSAGE
       rescue Sass::SyntaxError => e
         throw(:_sass_parser_error, true) if @throw_error
         raise e
-      end
-
-      def merge(arr)
-        arr && Sass::Util.merge_adjacent_strings([arr].flatten)
       end
 
       EXPR_NAMES = {

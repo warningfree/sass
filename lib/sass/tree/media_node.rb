@@ -8,11 +8,9 @@ module Sass::Tree
   class MediaNode < DirectiveNode
     # TODO: parse and cache the query immediately if it has no dynamic elements
 
-    # The media query for this rule, interspersed with {Sass::Script::Node}s
-    # representing `#{}`-interpolation. Any adjacent strings will be merged
-    # together.
+    # The media query for this rule.
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString]
     attr_accessor :query
 
     # The media query for this rule, without any unresolved interpolation. It's
@@ -27,11 +25,11 @@ module Sass::Tree
     # @see RuleNode#group_end
     attr_accessor :group_end
 
-    # @param query [Array<String, Sass::Script::Node>] See \{#query}
+    # @param query [Sass::InterpString] See \{#query}
     def initialize(query)
       @query = query
       @tabs = 0
-      super('')
+      super(Sass::InterpString.new)
     end
 
     # @see DirectiveNode#value

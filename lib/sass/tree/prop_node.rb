@@ -3,12 +3,9 @@ module Sass::Tree
   #
   # @see Sass::Tree
   class PropNode < Node
-    # The name of the property,
-    # interspersed with {Sass::Script::Node}s
-    # representing `#{}`-interpolation.
-    # Any adjacent strings will be merged together.
+    # The name of the property.
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString]
     attr_accessor :name
 
     # The name of the property
@@ -42,13 +39,12 @@ module Sass::Tree
     # @return [Fixnum]
     attr_accessor :tabs
 
-    # @param name [Array<String, Sass::Script::Node>] See \{#name}
+    # @param name [Sass::InterpString] See \{#name}
     # @param value [Sass::Script::Node] See \{#value}
     # @param prop_syntax [Symbol] `:new` if this property uses `a: b`-style syntax,
     #   `:old` if it uses `:a b`-style syntax
     def initialize(name, value, prop_syntax)
-      @name = Sass::Util.strip_string_array(
-        Sass::Util.merge_adjacent_strings(name))
+      @name = name.strip!
       @value = value
       @tabs = 0
       @prop_syntax = prop_syntax
@@ -81,7 +77,7 @@ module Sass::Tree
     # @param opts [{Symbol => Object}] The options hash for the tree.
     # @param fmt [Symbol] `:scss` or `:sass`.
     def declaration(opts = {:old => @prop_syntax == :old}, fmt = :sass)
-      name = self.name.map {|n| n.is_a?(String) ? n : "\#{#{n.to_sass(opts)}}"}.join
+      name = self.name.to_src(opts)
       if name[0] == ?:
         raise Sass::SyntaxError.new("The \"#{name}: #{self.class.val_to_sass(value, opts)}\" hack is not allowed in the Sass indented syntax")
       end

@@ -17,9 +17,9 @@ module Sass::Tree
 
     # The media query for this rule, interspersed with {Sass::Script::Node}s
     # representing `#{}`-interpolation. Any adjacent strings will be merged
-    # together.
+    # together. nil if there is no query.
     #
-    # @return [Array<String, Sass::Script::Node>]
+    # @return [Sass::InterpString?]
     attr_accessor :query
 
     # The media query for this rule, without any unresolved interpolation. It's
@@ -28,9 +28,9 @@ module Sass::Tree
     # @return [Sass::Media::QueryList]
     attr_accessor :resolved_query
 
-    # @param uri [String, Sass::Script::Node] See \{#uri}
-    # @param query [Array<String, Sass::Script::Node>] See \{#query}
-    def initialize(uri, query = nil)
+    # @param uri [Sass::InterpString] See \{#uri}
+    # @param query [Sass::InterpString] See \{#query}
+    def initialize(uri, query=nil)
       @uri = uri
       @query = query
       super('')

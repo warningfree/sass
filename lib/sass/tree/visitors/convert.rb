@@ -51,7 +51,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_comment(node)
-    value = interp_to_src(node.value)
+    value = node.value.to_src(@options)
     content = if @format == :sass
       content = value.gsub(/\*\/$/, '').rstrip
       if content =~ /\A[ \t]/
@@ -98,7 +98,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_directive(node)
-    res = "#{tab_str}#{interp_to_src(node.value)}"
+    res = "#{tab_str}#{node.value.to_src(@options)}"
     res.gsub!(/^@import \#\{(.*)\}([^}]*)$/, '@import \1\2');
     return res + "#{semi}\n" unless node.has_children
     res + yield + "\n"
@@ -109,7 +109,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_extend(node)
-    "#{tab_str}@extend #{selector_to_src(node.selector).lstrip}#{semi}#{" !optional" if node.optional?}\n"
+    "#{tab_str}@extend #{selector_to_src(node.selector.contents).lstrip}#{semi}#{" !optional" if node.optional?}\n"
   end
 
   def visit_for(node)
@@ -152,7 +152,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
   end
 
   def visit_media(node)
-    "#{tab_str}@media #{media_interp_to_src(node.query)}#{yield}"
+    "#{tab_str}@media #{media_interp_to_src(node.query.contents)}#{yield}"
   end
 
   def visit_supports(node)
@@ -165,7 +165,7 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
     else
       str = "#{tab_str}@import #{node.uri}"
     end
-    str << " #{interp_to_src(node.query)}" unless node.query.empty?
+    str << " #{node.query.to_src(@options)}" if node.query
     "#{str}#{semi}\n"
   end
 
@@ -224,11 +224,11 @@ class Sass::Tree::Visitors::Convert < Sass::Tree::Visitors::Base
 
   def visit_rule(node)
     if @format == :sass
-      name = selector_to_sass(node.rule)
+      name = selector_to_sass(node.rule.contents)
       name = "\\" + name if name[0] == ?:
       name.gsub(/^/, tab_str) + yield
     elsif @format == :scss
-      name = selector_to_scss(node.rule)
+      name = selector_to_scss(node.rule.contents)
       res = name + yield
       if node.children.last.is_a?(Sass::Tree::CommentNode) && node.children.last.type == :silent
         res.slice!(-3..-1)

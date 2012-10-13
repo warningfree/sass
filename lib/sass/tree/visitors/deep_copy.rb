@@ -55,7 +55,7 @@ class Sass::Tree::Visitors::DeepCopy < Sass::Tree::Visitors::Base
   end
 
   def visit_prop(node)
-    node.name = node.name.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    node.name = node.name.deep_copy
     node.value = node.value.deep_copy
     yield
   end
@@ -66,7 +66,7 @@ class Sass::Tree::Visitors::DeepCopy < Sass::Tree::Visitors::Base
   end
 
   def visit_rule(node)
-    node.rule = node.rule.map {|c| c.is_a?(Sass::Script::Node) ? c.deep_copy : c}
+    node.rule = node.rule.deep_copy
     yield
   end
 
