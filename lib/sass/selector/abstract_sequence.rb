@@ -86,8 +86,14 @@ module Sass
 
       def _specificity(arr)
         spec = 0
-        arr.map {|m| spec += m.is_a?(String) ? 0 : m.specificity}
+        arr.each do |m|
+          spec += m.specificity unless string?(m)
+        end
         spec
+      end
+
+      def string?(val)
+        val.is_a?(String) || val.is_a?(Sass::InterpString)
       end
     end
   end

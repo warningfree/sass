@@ -307,10 +307,9 @@ MESSAGE
         old_offset = @offset
         @line += c
         @offset = (c == 0 ? @offset + str2.size : str2[/\n(.*)/, 1].size)
-        [:special_fun,
-          Sass::Util.merge_adjacent_strings(
-            [str1] + Sass::Engine.parse_interp(str2, old_line, old_offset, @options)),
-          str1.size + str2.size]
+        interp = Sass::Engine.parse_interp(str2, old_line, old_offset, @options)
+        interp.prepend str1
+        [:special_fun, interp.contents, str1.size + str2.size]
       end
 
       def special_val

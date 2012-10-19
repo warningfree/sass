@@ -49,9 +49,19 @@ module Sass
       end
     end
 
+    def prepend(element)
+      if element.is_a?(InterpString)
+        @contents = element.contents + @contents
+      elsif element.is_a?(String) && @contents.first.is_a?(String)
+        @contents[0] = element + @contents.first
+      else
+        @contents.unshift element
+      end
+    end
+
     def <<(element)
       if element.is_a?(InterpString)
-        @contents += element.contents
+        @contents.concat element.contents
       elsif element.is_a?(String) && @contents.last.is_a?(String)
         @contents[-1] = @contents.last + element
       else

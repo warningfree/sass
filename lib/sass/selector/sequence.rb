@@ -30,7 +30,7 @@ module Sass
       # are also newline strings; these aren't semantically relevant, but they
       # do affect formatting.
       #
-      # @return [Array<SimpleSequence, String|Array<Sass::Tree::Node, String>>]
+      # @return [Array<SimpleSequence, String|Sass::InterpString>]
       attr_reader :members
 
       # @param seqs_and_ops [Array<SimpleSequence, String|Sass::InterpString>] See \{#members}
@@ -136,8 +136,10 @@ module Sass
       # this conceptually expands into `.D .C, .D (.A .B)`,
       # and this function translates `.D (.A .B)` into `.D .A .B, .A.D .B, .D .A .B`.
       #
-      # @param path [Array<Array<SimpleSequence or String>>] A list of parenthesized selector groups.
-      # @return [Array<Array<SimpleSequence or String>>] A list of fully-expanded selectors.
+      # @param path [Array<Array<SimpleSequence|String|Sass::InterpString>>]
+      #   A list of parenthesized selector groups.
+      # @return [Array<Array<SimpleSequence|String|Sass::InterpString>>]
+      #   A list of fully-expanded selectors.
       def weave(path)
         # This function works by moving through the selector path left-to-right,
         # building all possible prefixes simultaneously. These prefixes are
@@ -171,9 +173,9 @@ module Sass
       # elements matched by `B X`. Some `AB_i` are elided to reduce the size of
       # the output.
       #
-      # @param seq1 [Array<SimpleSequence or String>]
-      # @param seq2 [Array<SimpleSequence or String>]
-      # @return [Array<Array<SimpleSequence or String>>]
+      # @param seq1 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @param seq2 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @return [Array<Array<SimpleSequence|String|Sass::InterpString>>]
       def subweave(seq1, seq2)
         return [seq2] if seq1.empty?
         return [seq1] if seq2.empty?
@@ -207,15 +209,15 @@ module Sass
       # from two sequences and merges them together into a single array of
       # selector combinators.
       #
-      # @param seq1 [Array<SimpleSequence or String>]
-      # @param seq2 [Array<SimpleSequence or String>]
-      # @return [Array<String>, nil] If there are no operators in the merged
-      #   sequence, this will be the empty array. If the operators cannot be
-      #   merged, this will be nil.
+      # @param seq1 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @param seq2 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @return [Array<String|Sass::InterpString>, nil]
+      #   If there are no operators in the merged sequence, this will be the
+      #   empty array. If the operators cannot be merged, this will be nil.
       def merge_initial_ops(seq1, seq2)
         ops1, ops2 = [], []
-        ops1 << seq1.shift while seq1.first.is_a?(String)
-        ops2 << seq2.shift while seq2.first.is_a?(String)
+        ops1 << seq1.shift while string?(seq1.first)
+        ops2 << seq2.shift while string?(seq2.first)
 
         newline = false
         newline ||= !!ops1.shift if ops1.first == "\n"
@@ -232,10 +234,10 @@ module Sass
       # selectors to which they apply from two sequences and merges them
       # together into a single array.
       #
-      # @param seq1 [Array<SimpleSequence or String>]
-      # @param seq2 [Array<SimpleSequence or String>]
-      # @return [Array<SimpleSequence or String or
-      #     Array<Array<SimpleSequence or String>>]
+      # @param seq1 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @param seq2 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @return [Array<SimpleSequence|String|Sass::InterpString or
+      #     Array<Array<SimpleSequence|String|Sass::InterpString>>]
       #   If there are no trailing combinators to be merged, this will be the
       #   empty array. If the trailing combinators cannot be merged, this will
       #   be nil. Otherwise, this will contained the merged selector. Array
@@ -243,8 +245,8 @@ module Sass
       #   of multiple selectors.
       def merge_final_ops(seq1, seq2, res = [])
         ops1, ops2 = [], []
-        ops1 << seq1.pop while seq1.last.is_a?(String)
-        ops2 << seq2.pop while seq2.last.is_a?(String)
+        ops1 << seq1.pop while string?(seq1.last)
+        ops2 << seq2.pop while string?(seq2.last)
 
         # Not worth the headache of trying to preserve newlines here. The most
         # important use of newlines is at the beginning of the selector to wrap
@@ -369,7 +371,7 @@ module Sass
           head = []
           begin
             head << tail.shift
-          end while !tail.empty? && head.last.is_a?(String) || tail.first.is_a?(String)
+          end while !tail.empty? && string?(head.last) || string?(tail.first)
           newseq << head
         end
         return newseq
@@ -379,33 +381,33 @@ module Sass
       # superselector of `seq2`; that is, whether `seq1` matches every
       # element `seq2` matches.
       #
-      # @param seq1 [Array<SimpleSequence or String>]
-      # @param seq2 [Array<SimpleSequence or String>]
+      # @param seq1 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @param seq2 [Array<SimpleSequence|String|Sass::InterpString>]
       # @return [Boolean]
       def _superselector?(seq1, seq2)
         seq1 = seq1.reject {|e| e == "\n"}
         seq2 = seq2.reject {|e| e == "\n"}
         # Selectors with leading or trailing operators are neither
         # superselectors nor subselectors.
-        return if seq1.last.is_a?(String) || seq2.last.is_a?(String) ||
-          seq1.first.is_a?(String) || seq2.first.is_a?(String)
+        return if string?(seq1.last) || string?(seq2.last) ||
+          string?(seq1.first) || string?(seq2.first)
         # More complex selectors are never superselectors of less complex ones
         return if seq1.size > seq2.size
         return seq1.first.superselector?(seq2.last) if seq1.size == 1
 
         _, si = Sass::Util.enum_with_index(seq2).find do |e, i|
           return if i == seq2.size - 1
-          next if e.is_a?(String)
+          next if string?(e)
           seq1.first.superselector?(e)
         end
         return unless si
 
-        if seq1[1].is_a?(String)
-          return unless seq2[si+1].is_a?(String)
+        if string?(seq1[1])
+          return unless string?(seq2[si+1])
           # .foo ~ .bar is a superselector of .foo + .bar
           return unless seq1[1] == "~" ? seq2[si+1] != ">" : seq1[1] == seq2[si+1]
           return _superselector?(seq1[2..-1], seq2[si+2..-1])
-        elsif seq2[si+1].is_a?(String)
+        elsif string?(seq2[si+1])
           return unless seq2[si+1] == ">"
           return _superselector?(seq1[1..-1], seq2[si+2..-1])
         else
@@ -420,8 +422,8 @@ module Sass
       # However, it is a parent superselector, since `B X` is a
       # superselector of `B A X`.
       #
-      # @param seq1 [Array<SimpleSequence or String>]
-      # @param seq2 [Array<SimpleSequence or String>]
+      # @param seq1 [Array<SimpleSequence|String|Sass::InterpString>]
+      # @param seq2 [Array<SimpleSequence|String|Sass::InterpString>]
       # @return [Boolean]
       def parent_superselector?(seq1, seq2)
         base = Sass::Selector::SimpleSequence.new(
@@ -439,8 +441,8 @@ module Sass
       # "Redundant" here means that one selector is a superselector of
       # the other. The more specific selector is removed.
       #
-      # @param seqses [Array<Array<Array<SimpleSequence or String>>>]
-      # @return [Array<Array<Array<SimpleSequence or String>>>]
+      # @param seqses [Array<Array<Array<SimpleSequence|String|Sass::InterpString>>>]
+      # @return [Array<Array<Array<SimpleSequence|String|Sass::InterpString>>>]
       def trim(seqses)
         # This is n^2 on the sequences, but only comparing between
         # separate sequences should limit the quadratic behavior.

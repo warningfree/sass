@@ -99,19 +99,19 @@ module Sass
       # Unifies two namespaces,
       # returning a namespace that works for both of them if possible.
       #
-      # @param ns1 [String, nil] The first namespace.
+      # @param ns1 [Sass::InterpString, nil] The first namespace.
       #   `nil` means none specified, e.g. `foo`.
       #   The empty string means no namespace specified, e.g. `|foo`.
       #   `"*"` means any namespace is allowed, e.g. `*|foo`.
-      # @param ns2 [String, nil] The second namespace. See `ns1`.
-      # @return [Array(String or nil, Boolean)]
+      # @param ns2 [Sass::InterpString, nil] The second namespace. See `ns1`.
+      # @return [Array(Sass::InterpString or nil, Boolean)]
       #   The first value is the unified namespace, or `nil` for no namespace.
       #   The second value is whether or not a namespace that works for both inputs
       #   could be found at all.
       #   If the second value is `false`, the first should be ignored.
       def unify_namespaces(ns1, ns2)
-        return ns2, true if ns1 == InterpString.new('*')
-        return ns1, true if ns2 == InterpString.new('*')
+        return ns2, true if ns1 == Sass::InterpString.new('*')
+        return ns1, true if ns2 == Sass::InterpString.new('*')
         return nil, false unless ns1 == ns2 || ns1.nil? || ns2.nil?
         return ns1 || ns2, true
       end

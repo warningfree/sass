@@ -552,12 +552,12 @@ WARNING
           # which begin with ::,
           # as well as pseudo-classes
           # if we're using the new property syntax
-          Tree::RuleNode.new(Sass::InterpString.new(parse_interp(line.text)))
+          Tree::RuleNode.new(parse_interp(line.text))
         else
           name, value = line.text.scan(PROPERTY_OLD)[0]
           raise SyntaxError.new("Invalid property: \"#{line.text}\".",
             :line => @line) if name.nil? || value.nil?
-          parse_property(name, parse_interp(name), value, :old, line)
+          parse_property(name, value, :old, line)
         end
       when ?$
         parse_variable(line)
@@ -566,12 +566,12 @@ WARNING
       when DIRECTIVE_CHAR
         parse_directive(parent, line, root)
       when ESCAPE_CHAR
-        Tree::RuleNode.new(Sass::InterpString.new(parse_interp(line.text[1..-1])))
+        Tree::RuleNode.new(parse_interp(line.text[1..-1]))
       when MIXIN_DEFINITION_CHAR
         parse_mixin_definition(line)
       when MIXIN_INCLUDE_CHAR
         if line.text[1].nil? || line.text[1] == ?\s
-          Tree::RuleNode.new(Sass::InterpString.new(parse_interp(line.text)))
+          Tree::RuleNode.new(parse_interp(line.text))
         else
           parse_mixin_include(line, root)
         end
@@ -586,29 +586,27 @@ WARNING
       parser = Sass::SCSS::Parser.new(scanner, @options[:filename], @line)
 
       unless res = parser.parse_interp_ident
-        return Tree::RuleNode.new(Sass::InterpString.new(parse_interp(line.text)))
+        return Tree::RuleNode.new(parse_interp(line.text))
       end
-      res.unshift(hack_char) if hack_char
-      if comment = scanner.scan(Sass::SCSS::RX::COMMENT)
-        res << comment
-      end
+      res.prepend hack_char if hack_char
+      comment = scanner.scan(Sass::SCSS::RX::COMMENT)
 
       name = line.text[0...scanner.pos]
       if scanner.scan(/\s*:(?:\s|$)/)
-        parse_property(name, res, scanner.rest, :new, line)
+        res << comment if comment
+        parse_property(name, scanner.rest, :new, line)
       else
-        res.pop if comment
-        Tree::RuleNode.new(Sass::InterpString.new(res + parse_interp(scanner.rest)))
+        Tree::RuleNode.new(res + parse_interp(scanner.rest))
       end
     end
 
-    def parse_property(name, parsed_name, value, prop, line)
+    def parse_property(name, value, prop, line)
       if value.strip.empty?
         expr = Sass::Script::String.new("")
       else
         expr = parse_script(value, :offset => line.offset + line.text.index(value))
       end
-      node = Tree::PropNode.new(Sass::InterpString.new(parse_interp(name)), expr, prop)
+      node = Tree::PropNode.new(parse_interp(name), expr, prop)
       if value.strip.empty? && line.children.empty?
         raise SyntaxError.new(
           "Invalid property: \"#{node.declaration}\" (no value)." +
@@ -635,19 +633,20 @@ WARNING
         silent = line.text[1] == SASS_COMMENT_CHAR
         loud = !silent && line.text[2] == SASS_LOUD_COMMENT_CHAR
         if silent
-          value = [line.text]
+          value = Sass::InterpString.new(line.text)
         else
-          value = self.class.parse_interp(line.text, line.index, line.offset, :filename => @filename)
-          value[0].slice!(2) if loud # get rid of the "!"
+          text = line.text.dup
+          text.slice!(2) if loud # get rid of the "!" 
+          value = self.class.parse_interp(text, line.index, line.offset, :filename => @filename)
         end
-        value = with_extracted_values(value) do |str|
+        value = value.with_extracted_values do |str|
           str = str.gsub(/^#{line.comment_tab_str}/m, '')[2..-1] # get rid of // or /*
           format_comment_text(str, silent)
         end
         type = if silent then :silent elsif loud then :loud else :normal end
-        Tree::CommentNode.new(Sass::InterpString.new(value), type)
+        Tree::CommentNode.new(value, type)
       else
-        Tree::RuleNode.new(Sass::InterpString.new(parse_interp(line.text)))
+        Tree::RuleNode.new(parse_interp(line.text))
       end
     end
 
@@ -692,7 +691,7 @@ WARNING
           :line => @line + 1) unless line.children.empty?
         optional = !!value.gsub!(/\s+#{Sass::SCSS::RX::OPTIONAL}$/, '')
         offset = line.offset + line.text.index(value).to_i
-        Tree::ExtendNode.new(Sass::InterpString.new(parse_interp(value, offset)), optional)
+        Tree::ExtendNode.new(parse_interp(value, offset), optional)
       when 'warn'
         raise SyntaxError.new("Invalid warn directive '@warn': expected expression.") unless value
         raise SyntaxError.new("Illegal nesting: Nothing may be nested beneath warn directives.",
@@ -715,9 +714,9 @@ WARNING
         parser = Sass::SCSS::Parser.new(value, @options[:filename], @line)
         Tree::MediaNode.new(parser.parse_media_query_list.to_interp_str)
       else
-        Tree::DirectiveNode.new(
-          Sass::InterpString.new(value.nil? ? ["@#{directive}"] :
-            ["@#{directive} "] + parse_interp(value, offset)))
+        dir = Sass::InterpString.new("@#{directive}")
+        dir << " " << parse_interp(value, offset) if value
+        Tree::DirectiveNode.new(dir)
       end
     end
 
@@ -901,12 +900,12 @@ WARNING
       self.class.parse_interp(text, @line, offset, :filename => @filename)
     end
 
-    # It's important that this have strings (at least)
-    # at the beginning, the end, and between each Script::Node.
+    # It's important that this have strings at the beginning and the end of the
+    # InterpString.
     #
     # @private
     def self.parse_interp(text, line, offset, options)
-      res = []
+      res = Sass::InterpString.new
       rest = Sass::Shared.handle_interpolation text do |scan|
         escapes = scan[2].size
         res << scan.matched[0...-2 - escapes]

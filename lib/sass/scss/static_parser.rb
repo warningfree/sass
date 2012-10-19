@@ -30,7 +30,7 @@ module Sass
         return unless val = tok(URI) || tok(URL_PREFIX) || tok(DOMAIN) ||
           function(!:allow_var)
         ss
-        [val]
+        is val
       end
 
       def variable; nil; end
@@ -39,7 +39,7 @@ module Sass
       def var_expr; nil; end
       def interp_string; s = tok(STRING) and [s]; end
       def interp_uri; s = tok(URI) and [s]; end
-      def interp_ident(ident = IDENT); s = tok(ident) and [s]; end
+      def interp_ident(ident = IDENT); is(tok(ident)); end
       def use_css_import?; true; end
 
       def special_directive(name)
