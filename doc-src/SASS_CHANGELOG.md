@@ -25,6 +25,8 @@ filesystem. If this isn't the case, you'll need to make a custom class that
 extends \{Sass::Importers::Base} or \{Sass::Importers::Filesystem} and overrides
 \{Sass::Importers::Base#public\_url `#public_url`}.
 
+Thanks to Alexander Pavlov for implementing this.
+
 [source maps]: https://docs.google.com/document/d/1U1RGAehQwRypUTovF1KRlpiOFze0b-_2gc6fAH0KY0k/edit?hl=en_US&pli=1&pli=1
 
 ### Smaller Improvements
@@ -71,6 +73,11 @@ extends \{Sass::Importers::Base} or \{Sass::Importers::Filesystem} and overrides
 * `Sass::Plugin.options=` has been removed.
 
 * `Sass::Script::Number::PRECISION` has been removed.
+
+## 3.2.8 (Unreleased)
+
+* Fix some edge cases where redundant selectors were emitted when using
+  `@extend`.
 
 ## 3.2.7
 
@@ -308,7 +315,7 @@ that make use of `@media` and other directives dynamically.
   {Sass.load_paths}. This allows plugins and libraries to easily register their
   Sass files such that they're accessible to all {Sass::Engine} instances.
 
-* `Sass.load_paths` is initialized to the value of the `SASS_PATH`environment
+* `Sass.load_paths` is initialized to the value of the `SASS_PATH` environment
   variable. This variable should contain a colon-separated list of load paths
   (semicolon-separated on Windows).
 
